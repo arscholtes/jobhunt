@@ -1,0 +1,87 @@
+# Your canonical facts. Everything downstream reads from here — the scorer, the
+# resume tailoring, and the application drafts. Copy to profile.toml and edit.
+
+[me]
+name     = "Alex Scholtes"
+email    = "arscholtes@gmail.com"
+github   = "https://github.com/arscholtes"
+location = "Indianapolis, IN"
+
+[search]
+# Titles worth surfacing. Matched case-insensitively against the posting title.
+titles = [
+  "software engineer", "senior software engineer", "backend engineer",
+  "full stack engineer", "platform engineer", "product engineer",
+]
+# Titles that disqualify a posting outright, whatever else it says.
+exclude_titles = [
+  "intern", "principal", "staff", "manager", "director", "sales", "recruiter",
+]
+remote_only    = false
+locations      = ["Indianapolis", "Indiana", "Remote"]
+min_score      = 45          # hide anything below this in `jobhunt list`
+
+# ── what you are good at ───────────────────────────────────────────────
+# Weight is how much a match is worth. Keep the strongest signals highest.
+[skills]
+"ruby"          = 10
+"rails"         = 10
+"postgres"      = 6
+"sql"           = 5
+"sidekiq"       = 4
+"hotwire"       = 3
+"turbo"         = 3
+"stimulus"      = 3
+"multi-tenant"  = 5
+"event-driven"  = 4
+"redis"         = 3
+"python"        = 5
+"javascript"    = 4
+"typescript"    = 3
+"swift"         = 3
+"rspec"         = 4
+"api"           = 3
+"saas"          = 4
+
+# Things you want to move toward — worth points even though they are not yet
+# on the résumé, because they shape which jobs are worth the effort.
+[interests]
+"llm"              = 6
+"ai"               = 5
+"agent"            = 6
+"developer tools"  = 6
+"platform"         = 4
+"infrastructure"   = 3
+
+# Hard nos. A posting matching any of these is dropped, not just penalised.
+[[dealbreakers]]
+pattern = "security clearance"
+why     = "not eligible"
+
+[[dealbreakers]]
+pattern = "unpaid"
+why     = "no"
+
+# ── what you want out of a company ─────────────────────────────────────
+# Scored by the research step, not by keyword matching. Ordered by weight.
+[culture]
+"ships often"                = 5
+"small engineering team"     = 4
+"writes things down"         = 4
+"remote friendly"            = 3
+"no on-call pager rotation"  = 2
+
+# ── boards to poll ─────────────────────────────────────────────────────
+# token is the company slug in the board URL:
+#   boards.greenhouse.io/TOKEN | jobs.lever.co/TOKEN | jobs.ashbyhq.com/TOKEN
+[[boards]]
+source = "greenhouse"
+token  = "stripe"
+
+[[boards]]
+source = "ashby"
+token  = "ramp"
+
+[[boards]]
+source = "lever"
+token  = "spotify"

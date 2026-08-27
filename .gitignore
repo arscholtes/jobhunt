@@ -1,0 +1,5 @@
+data/
+profile.toml
+__pycache__/
+*.pyc
+.DS_Store
