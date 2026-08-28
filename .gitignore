@@ -17,3 +17,8 @@ eval/out/
 # profile.toml is ignored but its backups were not, so a stray `git add -A`
 # would have committed the personal profile.
 *.bak
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
