@@ -11,7 +11,7 @@ deliberate steps a human takes.
 """
 import argparse, json, sys, textwrap
 
-from . import store, profile as profile_mod, score as score_mod
+from . import signals as signals_mod, store, profile as profile_mod, score as score_mod
 from .sources import fetch as fetch_source
 from .sources._http import FetchError
 
@@ -59,6 +59,14 @@ def cmd_score(args):
             dropped += 1
             continue
         total, breakdown = score_mod.score(job, prof)
+        sig = signals_mod.extract(job)
+        delta, why = signals_mod.bonus(sig, prof)
+        if delta:
+            total = max(0.0, round(total + delta, 1))
+            breakdown["signals"] = why
+        breakdown["interview"] = sig["interview"]
+        breakdown["ai_stance"] = sig["ai_stance"]
+        breakdown["friction"] = sig["friction"]
         store.save_score(con, job["id"], total, breakdown)
         kept += 1
     print(f"scored {kept}, disqualified {dropped}")

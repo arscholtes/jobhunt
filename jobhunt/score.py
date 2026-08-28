@@ -19,6 +19,15 @@ def _hit(term, haystack):
     return re.search(r"(?<![a-z0-9])" + re.escape(term.lower()) + r"(?![a-z0-9])", haystack)
 
 
+def _hit_prefix(term, haystack):
+    """Like _hit but allows a suffix: 'intern' catches 'internship'.
+
+    Only used for title exclusions, where 'intern' should disqualify
+    'Software Engineer Internship' — a strict boundary match let those through.
+    """
+    return re.search(r"(?<![a-z0-9])" + re.escape(term.lower()), haystack)
+
+
 def dealbreaker(job, profile):
     """Return the reason this posting is disqualified, or None."""
     hay = _terms(job["title"] + " " + (job.get("description") or ""))
@@ -27,13 +36,21 @@ def dealbreaker(job, profile):
             return f"{d['pattern']} ({d.get('why', 'excluded')})"
     title = _terms(job["title"])
     for bad in profile["search"]["exclude_titles"]:
-        if _hit(bad, title):
+        if _hit_prefix(bad, title):
             return f"excluded title: {bad}"
     return None
 
 
 def score(job, profile):
-    """Return (total 0-100, breakdown dict). Higher is a better fit."""
+    """Return (total, breakdown dict). Higher is a better fit.
+
+    The base components sum to 100 by construction, but the total is deliberately
+    not capped there: interview and comp signals are added on top, and a posting
+    that is both a perfect content match and a good process match should be able
+    to say so rather than tie with every other perfect match at the ceiling.
+
+    The floor stays at 0 because -1 is the disqualified sentinel.
+    """
     title = _terms(job["title"])
     body = _terms(job["title"] + " " + (job.get("description") or ""))
     search = profile["search"]
@@ -69,7 +86,9 @@ def score(job, profile):
     elif search["remote_only"]:
         out["location"] = 0
     else:
-        out["location"] = WEIGHTS["location"] * 0.3
+        # Elsewhere-onsite is a preference, never a filter: relocation is a
+        # tradeoff against comp, not a hard no. Tune with search.elsewhere_weight.
+        out["location"] = round(WEIGHTS["location"] * search.get("elsewhere_weight", 0.3), 1)
 
     total = round(sum(v for k, v in out.items() if isinstance(v, (int, float))), 1)
-    return min(total, 100.0), out
+    return max(total, 0.0), out
