@@ -4,6 +4,10 @@ __pycache__/
 *.pyc
 .DS_Store
 
+# Rendered resumes and the personal resume source.
+resume.toml
+out/
+
 # Generated evaluation output.
 eval/out/
 
