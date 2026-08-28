@@ -26,6 +26,15 @@ CREATE TABLE IF NOT EXISTS scores (
   scored_at  TEXT NOT NULL
 );
 
+-- What has actually been emailed. The digest is a delta, and a time window is
+-- not a safe proxy for one: a missed run, a sleeping laptop, or unconfigured
+-- mail would drop a qualifying posting permanently. A row here is written only
+-- after the send succeeds, so an unsent posting is simply retried next hour.
+CREATE TABLE IF NOT EXISTS notified (
+  job_id      TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
+  notified_at TEXT NOT NULL
+);
+
 -- Application state is deliberately explicit. Nothing moves to 'sent' without
 -- a human doing it; see jobhunt.cli.
 CREATE TABLE IF NOT EXISTS applications (
@@ -37,6 +46,7 @@ CREATE TABLE IF NOT EXISTS applications (
 
 CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs(company);
 CREATE INDEX IF NOT EXISTS idx_jobs_seen    ON jobs(last_seen);
+CREATE INDEX IF NOT EXISTS idx_scores_total ON scores(total);
 """
 
 STATUSES = ("interested", "drafted", "sent", "rejected", "closed")
@@ -86,6 +96,21 @@ def save_score(con, job_id, total, breakdown):
         (job_id, total, json.dumps(breakdown), now()),
     )
     con.commit()
+
+
+def mark_notified(con, job_ids):
+    """Record that these postings have been emailed.
+
+    @param job_ids [Iterable<str>] ids that were included in a successful send
+    @return [int] rows written
+    """
+    ts = now()
+    rows = [(jid, ts) for jid in job_ids]
+    con.executemany(
+        "INSERT OR IGNORE INTO notified (job_id, notified_at) VALUES (?,?)", rows
+    )
+    con.commit()
+    return len(rows)
 
 
 def set_status(con, job_id, status, notes=None):
