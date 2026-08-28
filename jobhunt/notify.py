@@ -27,6 +27,8 @@ import tomllib
 
 CONFIG = pathlib.Path.home() / ".jobhunt-mail.toml"
 
+from . import gate
+
 
 class MailNotConfigured(RuntimeError):
     pass
@@ -55,7 +57,7 @@ def unsent(con, min_score=60, limit=200):
     @return [list<sqlite3.Row>] highest score first
     """
     return con.execute(
-        """SELECT j.id, j.company, j.title, j.location, j.remote, j.url, s.total
+        """SELECT j.id, j.company, j.title, j.location, j.remote, j.url, j.description, s.total
            FROM jobs j
            JOIN scores s ON s.job_id = j.id
            LEFT JOIN notified n ON n.job_id = j.id
@@ -78,11 +80,16 @@ def _table(rows):
         if len(title) > 46:
             title = title[:45] + "…"
         where = "remote" if r["remote"] else (r["location"] or "")[:18]
+        # Eligibility rides along with the posting rather than removing it. A
+        # region lock or a degree line is something to read before applying, not
+        # grounds for the digest to decide on someone's behalf.
+        labels = gate.flag_labels(dict(r))
+        flag = f'<div style="color:#b45309;font-size:11px">⚑ {labels}</div>' if labels else ""
         out.append(
             f'<tr style="border-top:1px solid #eee">'
             f'<td align="right"><b>{r["total"]:.0f}</b></td>'
             f'<td>{r["company"]}</td>'
-            f'<td><a href="{r["url"]}">{title}</a></td>'
+            f'<td><a href="{r["url"]}">{title}</a>{flag}</td>'
             f'<td style="color:#777">{where}</td></tr>'
         )
     out.append("</table>")

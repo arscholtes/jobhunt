@@ -174,6 +174,30 @@ def flags(job):
     return out
 
 
+# Short forms for the shortlist and the digest, where the evidence string is too
+# long to fit. The full evidence stays available through `jobhunt gate <id>`.
+FLAG_LABELS = {
+    "region_locked": "region-locked",
+    "level_above": "above level",
+    "level_below": "below level",
+    "degree_hard": "degree required",
+    "degree_soft": "degree preferred",
+    "equivalency_ok": "experience accepted",
+}
+
+
+def flag_labels(job):
+    """One short line naming this posting's eligibility flags, for a list row.
+
+    A flag nobody sees is a silent filter wearing a different name, so these ride
+    along with every listing rather than living only behind a subcommand.
+
+    @param job [Hash] a posting
+    @return [String] e.g. "region-locked · above level", or "" when clean
+    """
+    return " · ".join(FLAG_LABELS.get(name, name) for name, _ in flags(job))
+
+
 def decide(job):
     """Full gate decision for one posting."""
     shape, domain, reasons = classify(job)

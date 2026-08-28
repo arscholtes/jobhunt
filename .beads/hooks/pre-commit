@@ -22,3 +22,15 @@ if command -v bd >/dev/null 2>&1; then
   if [ $_bd_exit -ne 0 ]; then exit $_bd_exit; fi
 fi
 # --- END BEADS INTEGRATION v1.0.3 ---
+
+# --- FPS CHAIN ---
+# Appended after the beads block so bd can keep managing its own section.
+if [ -d tests ]; then
+  echo "pre-commit: running tests"
+  python3 -m unittest discover -s tests >/dev/null 2>&1 || {
+    echo >&2 "pre-commit: tests are red — commit refused."
+    echo >&2 "  python3 -m unittest discover -s tests"
+    exit 1
+  }
+fi
+# --- END FPS CHAIN ---

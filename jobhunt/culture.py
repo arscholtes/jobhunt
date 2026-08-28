@@ -40,14 +40,49 @@ def boilerplate(rows, floor=200):
     both a culture tell and — more urgently — a scoring distortion, because every
     technology named in it is inherited by every role the company posts.
     """
-    descs = [r["description"] or "" for r in rows if r["description"]]
-    if len(descs) < 3:
+    descs = _descriptions(rows)
+    if not descs:
         return ""
     first, shortest = descs[0], min(len(d) for d in descs)
     i = 0
     while i < shortest and all(d[i] == first[i] for d in descs):
         i += 1
+    if i == shortest:
+        # Every posting identical: there is no role content to separate, and
+        # claiming the whole body is boilerplate would leave nothing to score.
+        return ""
     return first[:i] if i >= floor else ""
+
+
+def _descriptions(rows):
+    """@return [Array<String>] descriptions, or [] when there are too few to judge."""
+    descs = [r["description"] or "" for r in rows if r["description"]]
+    return descs if len(descs) >= 3 else []
+
+
+def boilerplate_suffix(rows, floor=200):
+    """Longest common suffix across a company's descriptions.
+
+    Measured across the stored corpus this is usually the larger half: gitlab
+    repeats 1,483 characters of preamble and 3,708 of tail, and asana repeats
+    2,014 characters of tail with no shared preamble at all. Benefits, EEO
+    statements and stack blurbs sit at the end, so a prefix-only stripper leaves
+    most of the scoring distortion in place.
+
+    @param rows [Array<Hash>] every posting stored for one company
+    @param floor [Integer] shorter than this is coincidence, not boilerplate
+    @return [String] the shared tail, or ""
+    """
+    descs = _descriptions(rows)
+    if not descs:
+        return ""
+    first, shortest = descs[0], min(len(d) for d in descs)
+    i = 0
+    while i < shortest and all(d[-1 - i] == first[-1 - i] for d in descs):
+        i += 1
+    if i == shortest:
+        return ""
+    return first[len(first) - i:] if i >= floor else ""
 
 
 # Each known culture term maps to a probe returning (score 0-1, evidence string),

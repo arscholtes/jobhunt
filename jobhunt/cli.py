@@ -14,7 +14,7 @@ deliberate steps a human takes.
 import argparse, json, pathlib, sys, textwrap
 
 from . import signals as signals_mod, store, profile as profile_mod, score as score_mod
-from . import gate, resume
+from . import gate, resume, culture
 from .sources import fetch as fetch_source
 from .sources._http import FetchError
 
@@ -53,7 +53,19 @@ def cmd_score(args):
     prof = _load_profile(args)
     con = store.connect()
     jobs = con.execute("SELECT * FROM jobs").fetchall()
+
+    # Per-company boilerplate is computed once across that company's whole corpus,
+    # then stripped from each posting before it is scored. Without this a company
+    # that repeats its stack on every posting gives all of them a perfect skills
+    # score, ranking its field roles above its engineering ones.
+    by_company = {}
+    for j in jobs:
+        by_company.setdefault(j["company"], []).append(j)
+    boilerplate = {c: (culture.boilerplate(rows), culture.boilerplate_suffix(rows))
+                   for c, rows in by_company.items()}
+
     kept = dropped = 0
+    stripped_companies = sum(1 for pre, suf in boilerplate.values() if pre or suf)
     for j in jobs:
         job = dict(j)
         reason = score_mod.dealbreaker(job, prof)
@@ -61,7 +73,8 @@ def cmd_score(args):
             store.save_score(con, job["id"], -1, {"disqualified": reason})
             dropped += 1
             continue
-        total, breakdown = score_mod.score(job, prof)
+        pre, suf = boilerplate.get(job["company"], ("", ""))
+        total, breakdown = score_mod.score(job, prof, boilerplate=pre, suffix=suf)
         sig = signals_mod.extract(job)
         delta, why = signals_mod.bonus(sig, prof)
         if delta:
@@ -72,7 +85,9 @@ def cmd_score(args):
         breakdown["friction"] = sig["friction"]
         store.save_score(con, job["id"], total, breakdown)
         kept += 1
-    print(f"scored {kept}, disqualified {dropped}")
+    print(f"scored {kept}, disqualified {dropped}"
+          + (f", boilerplate stripped for {stripped_companies} compan"
+             f"{'y' if stripped_companies == 1 else 'ies'}" if stripped_companies else ""))
 
 
 def cmd_list(args):
@@ -80,7 +95,7 @@ def cmd_list(args):
     floor = -1 if args.all else prof["search"]["min_score"]
     con = store.connect()
     rows = con.execute(
-        """SELECT j.id, j.company, j.title, j.location, j.remote, s.total,
+        """SELECT j.id, j.company, j.title, j.location, j.remote, j.description, s.total,
                   COALESCE(a.status,'') AS status
            FROM jobs j JOIN scores s ON s.job_id = j.id
            LEFT JOIN applications a ON a.job_id = j.id
@@ -96,7 +111,9 @@ def cmd_list(args):
             loc = "remote" if loc == "—" else f"remote · {loc}"
         flag = f"  [{r['status']}]" if r["status"] else ""
         print(f"{r['total']:5.1f}  {r['company'][:16]:16}  {r['title'][:46]:46}  {loc[:22]:22}{flag}")
-        print(f"       {r['id']}")
+        # Eligibility is shown, never applied: nothing here removes a posting.
+        labels = gate.flag_labels(dict(r))
+        print(f"       {r['id']}" + (f"   ⚑ {labels}" if labels else ""))
 
 
 def cmd_show(args):
