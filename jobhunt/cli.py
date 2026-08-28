@@ -4,14 +4,17 @@
     jobhunt score                 (re)score everything stored
     jobhunt list [--all] [-n 20]  ranked shortlist
     jobhunt show <job-id>         one posting in full
+    jobhunt gate <job-id>         which resume variant it gets, and why
+    jobhunt resume <job-id>       render that variant
     jobhunt status <job-id> <s>   interested | drafted | sent | rejected | closed
 
 Nothing in this tool contacts an employer. Drafting and sending are separate,
 deliberate steps a human takes.
 """
-import argparse, json, sys, textwrap
+import argparse, json, pathlib, sys, textwrap
 
 from . import signals as signals_mod, store, profile as profile_mod, score as score_mod
+from . import gate, resume
 from .sources import fetch as fetch_source
 from .sources._http import FetchError
 
@@ -125,6 +128,42 @@ def cmd_status(args):
     print(f"{args.job_id} → {args.status}")
 
 
+def _job(con, job_id):
+    r = con.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+    if not r:
+        sys.exit(f"error: no job with id {job_id!r}")
+    return r
+
+
+def cmd_gate(args):
+    """Explain which resume a posting gets, and why."""
+    r = _job(store.connect(), args.job_id)
+    d = gate.decide({"title": r["title"], "description": r["description"]})
+    print(f"{r['title']}\n{r['company']}  ·  {r['location'] or '—'}\n")
+    print(f"variant  {d['variant']}")
+    for reason in d["reasons"]:
+        print(f"         {reason}")
+    if d["flags"]:
+        print()
+        for name, evidence in d["flags"]:
+            print(f"FLAG     {name}: {evidence!r}")
+
+
+def cmd_resume(args):
+    """Render the resume this posting should get."""
+    r = _job(store.connect(), args.job_id)
+    d = gate.decide({"title": r["title"], "description": r["description"]})
+    try:
+        text = resume.generate(d["shape"], d["domain"])
+    except resume.ResumeError as e:
+        sys.exit(f"error: {e}")
+    if args.out:
+        pathlib.Path(args.out).write_text(text)
+        print(f"{d['variant']} → {args.out}")
+    else:
+        print(text)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="jobhunt", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -142,6 +181,15 @@ def main(argv=None):
     p = sub.add_parser("show", help="one posting in full")
     p.add_argument("job_id")
     p.set_defaults(fn=cmd_show)
+
+    p = sub.add_parser("gate", help="which resume variant a posting gets, and why")
+    p.add_argument("job_id")
+    p.set_defaults(fn=cmd_gate)
+
+    p = sub.add_parser("resume", help="render the resume variant for a posting")
+    p.add_argument("job_id")
+    p.add_argument("-o", "--out", help="write to a file instead of stdout")
+    p.set_defaults(fn=cmd_resume)
 
     p = sub.add_parser("status", help="record where an application stands")
     p.add_argument("job_id")
