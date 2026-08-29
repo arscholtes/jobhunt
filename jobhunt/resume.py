@@ -150,14 +150,27 @@ def render(doc):
         out += [f"{g['name']}: {', '.join(g['terms'])}" for g in doc["skills"]]
         out += [""]
 
-    if doc["roles"]:
-        out += ["## Experience", ""]
-        for role in doc["roles"]:
+    def _section(heading, roles):
+        if not roles:
+            return []
+        block = [f"## {heading}", ""]
+        for role in roles:
             dates = f"{role.get('start', '')} - {role.get('end', '')}".strip(" -")
-            out += [f"### {role['title']}, {role['company']}",
-                    f"{dates}" + (f" | {role['location']}" if role.get("location") else ""), ""]
-            out += [f"- {b['text']}" for b in role["bullets"]]
-            out += [""]
+            block += [f"### {role['title']}, {role['company']}",
+                      f"{dates}" + (f" | {role['location']}" if role.get("location") else ""), ""]
+            block += [f"- {b['text']}" for b in role["bullets"]]
+            block += [""]
+        return block
+
+    # Two sections, each newest first. Employment leads because that is what a
+    # hiring reader scans for; the founder thread reads as one story below it.
+    def _recency(r):
+        return str(r.get("end") or "9999")
+    roles = doc["roles"]
+    out += _section("Experience", sorted(
+        [r for r in roles if r.get("kind", "employment") != "founder"], key=_recency, reverse=True))
+    out += _section("Founder & Operator", sorted(
+        [r for r in roles if r.get("kind") == "founder"], key=_recency, reverse=True))
 
     if doc["projects"]:
         out += ["## Projects", ""]
