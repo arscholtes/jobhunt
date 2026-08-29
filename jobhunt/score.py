@@ -15,8 +15,19 @@ def _terms(text):
     return " " + re.sub(r"[^a-z0-9+#. -]+", " ", (text or "").lower()) + " "
 
 
+def _norm(term):
+    """Normalise a pattern the same way the haystack is normalised.
+
+    _terms() strips every character outside [a-z0-9+#. -], so a rule written
+    naturally as "on-call 24/7" would otherwise be matched against text reading
+    "on-call 24 7" and could never fire. A rule nobody can tell is broken is worse
+    than no rule at all.
+    """
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9+#. -]+", " ", (term or "").lower())).strip()
+
+
 def _hit(term, haystack):
-    return re.search(r"(?<![a-z0-9])" + re.escape(term.lower()) + r"(?![a-z0-9])", haystack)
+    return re.search(r"(?<![a-z0-9])" + re.escape(_norm(term)) + r"(?![a-z0-9])", haystack)
 
 
 def _hit_prefix(term, haystack):
@@ -25,7 +36,7 @@ def _hit_prefix(term, haystack):
     Only used for title exclusions, where 'intern' should disqualify
     'Software Engineer Internship' — a strict boundary match let those through.
     """
-    return re.search(r"(?<![a-z0-9])" + re.escape(term.lower()), haystack)
+    return re.search(r"(?<![a-z0-9])" + re.escape(_norm(term)), haystack)
 
 
 def strip_boilerplate(description, boilerplate, suffix=""):
