@@ -124,7 +124,7 @@ def score(job, profile, boilerplate="", suffix=""):
     loc = _terms(job.get("location") or "")
     if job.get("remote"):
         out["location"] = WEIGHTS["location"]
-    elif any(_hit(l, loc) for l in search["locations"]):
+    elif any(_hit(term, loc) for term in search["locations"]):
         out["location"] = WEIGHTS["location"]
     elif search["remote_only"]:
         out["location"] = 0
