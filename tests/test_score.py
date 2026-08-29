@@ -58,6 +58,52 @@ class DealbreakerTests(unittest.TestCase):
         self.assertIsNone(score_mod.dealbreaker(job(description="we host interns each summer"), profile()))
 
 
+class EarlyCareerExclusionTests(unittest.TestCase):
+    """Early-career postings were ranking near the top of a senior's shortlist.
+
+    "Software Engineer, New Grad (Dec 2026)" scored 92.0, third overall. The title
+    reads as a plain engineering role to every weight in the model, so nothing
+    below the title rule can catch it.
+    """
+
+    def profile_with_early_career(self):
+        p = profile()
+        p["search"]["exclude_titles"] = ["intern", "new grad", "early career", "junior",
+                                         "principal", "staff", "manager", "director"]
+        return p
+
+    def test_a_new_grad_title_is_excluded(self):
+        j = job(title="Software Engineer, New Grad (Dec 2026)")
+        self.assertIsNotNone(score_mod.dealbreaker(j, self.profile_with_early_career()))
+
+    def test_an_early_career_title_is_excluded(self):
+        j = job(title="Software Engineer, Early Career (AI)")
+        self.assertIsNotNone(score_mod.dealbreaker(j, self.profile_with_early_career()))
+
+    def test_a_junior_title_is_excluded(self):
+        j = job(title="Junior Software Engineer")
+        self.assertIsNotNone(score_mod.dealbreaker(j, self.profile_with_early_career()))
+
+    def test_a_plural_new_grads_title_is_caught_by_the_prefix_match(self):
+        j = job(title="Software Engineer (New Grads)")
+        self.assertIsNotNone(score_mod.dealbreaker(j, self.profile_with_early_career()))
+
+    def test_a_senior_title_is_untouched(self):
+        j = job(title="Senior Backend Engineer")
+        self.assertIsNone(score_mod.dealbreaker(j, self.profile_with_early_career()))
+
+    def test_early_career_language_in_the_body_does_not_exclude(self):
+        # exclude_titles is a title rule. A posting that merely mentions a new-grad
+        # programme is not itself an early-career role.
+        j = job(title="Senior Backend Engineer", description="We also hire new grads.")
+        self.assertIsNone(score_mod.dealbreaker(j, self.profile_with_early_career()))
+
+    def test_the_reason_names_which_title_term_matched(self):
+        j = job(title="Software Engineer, New Grad (Dec 2026)")
+        reason = score_mod.dealbreaker(j, self.profile_with_early_career())
+        self.assertIn("new grad", reason)
+
+
 class ScoreTests(unittest.TestCase):
     def test_a_matching_title_earns_the_title_weight(self):
         _, out = score_mod.score(job(title="Backend Engineer"), profile())

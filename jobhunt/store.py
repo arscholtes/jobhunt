@@ -44,6 +44,15 @@ CREATE TABLE IF NOT EXISTS applications (
   updated_at TEXT NOT NULL
 );
 
+-- Shipping cadence comes from someone else's API, so it is cached rather than
+-- refetched per report. A stale answer is fine; hammering an unauthenticated
+-- endpoint until it rate-limits is not.
+CREATE TABLE IF NOT EXISTS cadence (
+  company    TEXT PRIMARY KEY,
+  data       TEXT NOT NULL,            -- json
+  fetched_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs(company);
 CREATE INDEX IF NOT EXISTS idx_jobs_seen    ON jobs(last_seen);
 CREATE INDEX IF NOT EXISTS idx_scores_total ON scores(total);
@@ -111,6 +120,30 @@ def mark_notified(con, job_ids):
     )
     con.commit()
     return len(rows)
+
+
+def save_cadence(con, company, data):
+    """@param data [Hash] whatever cadence.for_company resolved; stored as json"""
+    con.execute("INSERT OR REPLACE INTO cadence (company, data, fetched_at) VALUES (?,?,?)",
+                (company, json.dumps(data), now()))
+    con.commit()
+
+
+def get_cadence(con, company, max_age_days=7):
+    """@return [Hash, nil] the cached answer, or nil when absent or too old to trust."""
+    row = con.execute("SELECT data, fetched_at FROM cadence WHERE company = ?", (company,)).fetchone()
+    if not row:
+        return None
+    try:
+        age = datetime.datetime.now(datetime.timezone.utc) - datetime.datetime.fromisoformat(row["fetched_at"])
+    except (ValueError, TypeError):
+        return None
+    if age.days > max_age_days:
+        return None
+    try:
+        return json.loads(row["data"])
+    except (json.JSONDecodeError, ValueError):
+        return None
 
 
 def set_status(con, job_id, status, notes=None):

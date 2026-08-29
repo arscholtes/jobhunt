@@ -15,8 +15,11 @@ titles = [
 ]
 # Titles that disqualify a posting outright, whatever else it says.
 exclude_titles = [
-  "intern", "principal", "staff", "manager", "director", "sales", "recruiter",
+  "intern", "new grad", "early career", "junior",
+  "principal", "staff", "manager", "director", "sales", "recruiter",
 ]
+# Matched against the TITLE only, by prefix, so "new grad" also catches "New Grads"
+# and a posting that merely mentions a new-grad programme in its body is untouched.
 remote_only    = false
 locations      = ["Indianapolis", "Indiana", "Remote"]
 min_score      = 45          # hide anything below this in `jobhunt list`

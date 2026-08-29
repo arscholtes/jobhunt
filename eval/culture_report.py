@@ -7,7 +7,7 @@ import pathlib
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-from jobhunt import culture, profile as profile_mod, store  # noqa: E402
+from jobhunt import cadence, culture, profile as profile_mod, store  # noqa: E402
 
 
 def main():
@@ -21,13 +21,22 @@ def main():
         rows = con.execute("SELECT * FROM jobs WHERE company = ?", (comp,)).fetchall()
         if len(rows) < 3:
             continue
-        a = culture.assess(rows, prof)
+        # Cadence is the one term the corpus cannot answer, so it is fetched —
+        # cached for a week, and left unknown rather than zeroed when nothing replies.
+        cad = store.get_cadence(con, comp)
+        if cad is None:
+            cad = cadence.for_company(comp, org_overrides=prof.get("github_orgs"),
+                                      feeds=prof.get("feeds"))
+            store.save_cadence(con, comp, cad)
+        ships = (cad["score"], cad["why"]) if cad["score"] is not None else None
+        a = culture.assess(rows, prof, ships_often=ships)
         a["company"] = comp
         results.append(a)
     results.sort(key=lambda a: -(a["score"] or 0))
 
     out = ["# Culture — corpus evidence\n",
-           "Derived entirely from postings already in sqlite. No new requests.",
+           "Derived from postings already in sqlite, plus one cached weekly lookup "
+           "per company for shipping cadence — the only term a job posting cannot answer.",
            "A term the corpus cannot speak to scores `unknown` and is excluded from",
            "the denominator, so silence never reads as a bad result.\n",
            "| company | culture | covered | postings | boilerplate |",
