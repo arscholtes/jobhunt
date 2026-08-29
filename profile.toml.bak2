@@ -1,0 +1,204 @@
+# Your canonical facts. Everything downstream reads from here — the scorer, the
+# resume tailoring, and the application drafts. Copy to profile.toml and edit.
+
+[me]
+name     = "Alex Scholtes"
+email    = "arscholtes@gmail.com"
+github   = "https://github.com/arscholtes"
+location = "Indianapolis, IN"
+
+[search]
+# Titles worth surfacing. Matched case-insensitively against the posting title.
+titles = [
+  "software engineer", "senior software engineer", "backend engineer",
+  "full stack engineer", "platform engineer", "product engineer",
+]
+# Titles that disqualify a posting outright, whatever else it says.
+exclude_titles = [
+  "intern", "new grad", "early career", "junior",
+  "principal", "staff", "manager", "director", "sales", "recruiter",
+]
+# Matched against the TITLE only, by prefix, so "new grad" also catches "New Grads"
+# and a posting that merely mentions a new-grad programme in its body is untouched.
+remote_only    = false
+locations      = ["Indianapolis", "Indiana", "Remote", "California", "San Francisco", "Bay Area", "Seattle", "New York"]
+min_score      = 45
+# Elsewhere-onsite still scores, just lower. Never a disqualifier — relocating is
+# a tradeoff against comp, not a hard no.
+elsewhere_weight = 0.3          # hide anything below this in `jobhunt list`
+
+# ── what you are good at ───────────────────────────────────────────────
+# Weight is how much a match is worth. Keep the strongest signals highest.
+[skills]
+# Weighted by evidence, not affection. Production Rails is the deepest, but the
+# public record is 33 JavaScript repos to 31 Ruby — this is a polyglot profile
+# and weighting Ruby alone filters against it.
+"ruby"           = 10
+"rails"          = 10
+"javascript"     = 9
+"typescript"     = 8
+"react"          = 7
+"node"           = 7
+"postgres"       = 7
+"sql"            = 6
+"python"         = 6
+"api"            = 6
+"rest"           = 5
+"background jobs" = 5
+"sidekiq"        = 5
+"redis"          = 4
+"docker"         = 4
+"swift"          = 3
+"java"           = 3
+"c#"             = 3
+"go"             = 3
+"elixir"         = 2
+# Transferable rather than language-specific — these travel to any stack.
+"multi-tenant"   = 6
+"webhooks"       = 5
+"event-driven"   = 5
+"integrations"   = 5
+"test-driven"    = 4
+"code review"    = 3
+
+[interests]
+"llm"              = 6
+"ai"               = 5
+"agent"            = 6
+"developer tools"  = 6
+"platform"         = 4
+"infrastructure"   = 3
+
+# Hard nos. A posting matching any of these is dropped, not just penalised.
+[[dealbreakers]]
+pattern = "security clearance"
+why     = "not eligible"
+
+[[dealbreakers]]
+pattern = "unpaid"
+why     = "no"
+
+# ── what you want out of a company ─────────────────────────────────────
+# Scored by the research step, not by keyword matching. Ordered by weight.
+[culture]
+"ships often"                = 5
+"small engineering team"     = 4
+"writes things down"         = 4
+"remote friendly"            = 3
+"no on-call pager rotation"  = 2
+
+# ── boards to poll ─────────────────────────────────────────────────────
+# token is the company slug in the board URL:
+#   boards.greenhouse.io/TOKEN | jobs.lever.co/TOKEN | jobs.ashbyhq.com/TOKEN
+[[boards]]
+source = "greenhouse"
+token  = "stripe"
+
+[[boards]]
+source = "ashby"
+token  = "ramp"
+
+[[boards]]
+source = "lever"
+token  = "spotify"
+
+# ── Ruby/Rails shops ───────────────────────────────────────────────────
+[[boards]]
+source = "greenhouse"
+token  = "gitlab"
+
+[[boards]]
+source = "greenhouse"
+token  = "instacart"
+
+[[boards]]
+source = "greenhouse"
+token  = "zendesk"
+
+[[boards]]
+source = "greenhouse"
+token  = "procore"
+
+[[boards]]
+source = "greenhouse"
+token  = "flexport"
+
+[[boards]]
+source = "greenhouse"
+token  = "podium81"
+name   = "podium"   # the board's address is podium81; the company is podium
+
+[[boards]]
+source = "ashby"
+token  = "linear"
+
+[[boards]]
+source = "ashby"
+token  = "vanta"
+
+[[boards]]
+source = "ashby"
+token  = "clerk"
+
+# ── mid-size product companies, JS/TS heavy ────────────────────────────
+[[boards]]
+source = "greenhouse"
+token  = "airtable"
+
+[[boards]]
+source = "greenhouse"
+token  = "asana"
+
+[[boards]]
+source = "greenhouse"
+token  = "hashicorp"
+
+[[boards]]
+source = "greenhouse"
+token  = "webflow"
+
+[[boards]]
+source = "ashby"
+token  = "notion"
+
+[[boards]]
+source = "ashby"
+token  = "replit"
+
+[[boards]]
+source = "greenhouse"
+token  = "netlify"
+
+# ── Indiana / midwest presence ─────────────────────────────────────────
+[[boards]]
+source = "greenhouse"
+token  = "salesforce"
+
+[[boards]]
+source = "ashby"
+token  = "angi"
+
+[signals]
+# Opt-in adjustments from what a posting reveals about itself. Absent = 0, so
+# removing this section restores the original ranking exactly.
+#
+# Weighted for someone who is strong on judgment and design and weaker on a
+# timed algorithm screen. Change the numbers when that stops being true.
+interview_take_home    =  8
+interview_pairing      =  8
+interview_no_leetcode  =  6
+interview_system_design =  4
+interview_live_coding  = -6
+
+ai_encouraged          =  8
+ai_mentioned           =  3
+ai_prohibited          = -10
+
+friction_low           =  3
+friction_high          = -4
+
+# Preference, not a requirement — nothing is ever disqualified on comp, and a
+# posting below the preference is simply not rewarded rather than punished.
+comp_floor             = 80      # thousands
+comp_meets_floor       =  4
+comp_below_floor       =  0
