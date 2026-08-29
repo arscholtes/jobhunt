@@ -39,16 +39,25 @@ class DealbreakerTests(unittest.TestCase):
         reason = score_mod.dealbreaker(job(description="requires a security clearance"), profile())
         self.assertIn("security clearance", reason)
 
-    def test_a_pattern_containing_punctuation_stripped_by_normalisation_can_never_match(self):
-        """Documents a live trap rather than asserting the desired behaviour.
+    def test_a_pattern_containing_punctuation_still_fires(self):
+        """The pattern is normalised the same way the haystack is.
 
-        _terms() drops every character outside [a-z0-9+#. -], so a profile
-        dealbreaker written as "on-call 24/7" is compared against a haystack that
-        reads "on-call 24 7" and silently never fires. Patterns must be written
-        post-normalisation until that is fixed.
+        _terms() drops every character outside [a-z0-9+#. -], so a dealbreaker
+        written naturally as "on-call 24/7" used to be compared against a haystack
+        reading "on-call 24 7" and silently never fired. A rule nobody can tell is
+        broken is worse than no rule.
         """
         p = profile(dealbreakers=[{"pattern": "on-call 24/7", "why": "no"}])
-        self.assertIsNone(score_mod.dealbreaker(job(description="on-call 24/7 rotation"), p))
+        self.assertIsNotNone(score_mod.dealbreaker(job(description="on-call 24/7 rotation"), p))
+
+    def test_an_excluded_title_containing_punctuation_still_fires(self):
+        p = profile()
+        p["search"]["exclude_titles"] = ["c/c++"]
+        self.assertIsNotNone(score_mod.dealbreaker(job(title="C/C++ Systems Engineer"), p))
+
+    def test_normalising_the_pattern_does_not_make_it_match_everything(self):
+        p = profile(dealbreakers=[{"pattern": "on-call 24/7", "why": "no"}])
+        self.assertIsNone(score_mod.dealbreaker(job(description="a pleasant role"), p))
 
     def test_an_excluded_title_disqualifies_by_prefix(self):
         self.assertIsNotNone(score_mod.dealbreaker(job(title="Software Engineer Internship"), profile()))
