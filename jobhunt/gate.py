@@ -117,11 +117,16 @@ def classify(job):
     title, body = _hay(job.get("title")), _hay(job.get("description"))
     reasons = []
 
-    shape, hit = _first(SHAPES, title)
+    # The catch-all entry is not a real match. A title reading "Senior Software
+    # Engineer, <team>" names an engineering job and nothing more, so matching it
+    # against 'generic' and stopping there skipped the body fallback that exists
+    # for exactly this case — a third of top postings got the least-tailored
+    # resume while their bodies said plainly what the role was.
+    shape, hit = _first([s for s in SHAPES if s[0] != "generic"], title)
     if shape:
         reasons.append(f"shape={shape} from title term {hit!r}")
     elif re.search(ENGINEERING_TITLE, title):
-        shape, hit = _first(SHAPES, body)
+        shape, hit = _first([s for s in SHAPES if s[0] != "generic"], body)
         if shape:
             reasons.append(f"shape={shape} from body term {hit!r} (title was ambiguous)")
         else:
