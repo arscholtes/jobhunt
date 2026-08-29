@@ -3,7 +3,12 @@
 Finds engineering roles worth applying to, ranks them against a profile you
 control, and keeps track of where each application stands.
 
-Stdlib only — no install step, no dependencies, no API keys.
+Stdlib only at runtime — no install step, no dependencies, no API keys.
+
+The promise covers what you need to *run* it. Development tooling (a linter, a
+test runner) may bring dependencies; that is a separate contract and the
+stdlib-only gate deliberately scopes itself to the runtime package so adding a
+linter never reads as breaking a promise about the tool.
 
 ```bash
 cp profile.example.toml profile.toml   # then edit it
