@@ -33,9 +33,11 @@ jobs:
           python - <<'PY'
           import ast, pathlib, sys
           stdlib = sys.stdlib_module_names
-          local = {p.stem for p in pathlib.Path("jobhunt").glob("*.py")}
+          # Runtime only. The README's promise is about running the tool, not
+          # about its dev tooling — a linter or test dependency does not break it.
+          local = {p.stem for p in pathlib.Path("jobhunt").rglob("*.py")}
           bad = []
-          for path in list(pathlib.Path("jobhunt").glob("*.py")) + list(pathlib.Path("tests").glob("*.py")):
+          for path in pathlib.Path("jobhunt").rglob("*.py"):
               tree = ast.parse(path.read_text())
               for node in ast.walk(tree):
                   if isinstance(node, ast.Import):

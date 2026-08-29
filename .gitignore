@@ -25,3 +25,11 @@ eval/out/
 
 # Backups of the personal resume source.
 resume.toml.*
+
+# Backup variants. An ignore rule for a file does not cover its backups, and that
+# exact gap leaked twice before anything checked for it.
+*.bak
+*.orig
+*.pre-*
+*~
+*.swp
