@@ -22,3 +22,6 @@ eval/out/
 .dolt/
 *.db
 .beads-credential-key
+
+# Backups of the personal resume source.
+resume.toml.*
