@@ -55,7 +55,7 @@ def scrub(text, company, codename):
 def sample(con, seed, per_band=None):
     rng = random.Random(seed)
     picked = []
-    for name, lo, hi, n in BANDS:
+    for _name, lo, hi, n in BANDS:
         rows = con.execute(
             """SELECT j.id, j.company, j.title, j.location, j.remote, j.url,
                       j.description, s.total, s.breakdown
