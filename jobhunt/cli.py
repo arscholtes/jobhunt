@@ -27,6 +27,27 @@ def _load_profile(args):
         sys.exit(f"error: {e}")
 
 
+def apply_board_name(rows, board):
+    """Use the board's display name as the company, where one is given.
+
+    A token is an address: Podium's Greenhouse board answers to "podium81", and
+    without this every posting from it is filed under a company of that name —
+    which is what the digest shows and what boilerplate and culture scoring group
+    on. The posting id is deliberately untouched, since it encodes the address and
+    rewriting it would make every known posting look new.
+
+    @param rows [Array<Hash>] postings as the adapter returned them
+    @param board [Hash] the [[boards]] entry
+    @return [Array<Hash>]
+    """
+    name = (board.get("name") or "").strip()
+    if not name:
+        return rows
+    for r in rows:
+        r["company"] = name
+    return rows
+
+
 def cmd_fetch(args):
     prof = _load_profile(args)
     boards = prof["boards"]
@@ -37,7 +58,7 @@ def cmd_fetch(args):
     for b in boards:
         label = f"{b['source']}/{b['token']}"
         try:
-            rows = fetch_source(b["source"], b["token"])
+            rows = apply_board_name(fetch_source(b["source"], b["token"]), b)
         except (FetchError, ValueError) as e:
             print(f"  {label:28} skipped — {e}")
             continue
