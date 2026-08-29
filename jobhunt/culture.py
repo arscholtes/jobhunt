@@ -122,11 +122,17 @@ PROBES = {
 }
 
 
-def assess(rows, profile):
+def assess(rows, profile, ships_often=None):
     """Score one company's culture 0-100 against the profile's [culture] weights.
+
+    Stays pure: "ships often" is the one term the corpus cannot answer, and its
+    evidence is passed in rather than fetched here, so scoring never depends on
+    the network being up.
 
     @param rows [list<sqlite3.Row>] every posting stored for that company
     @param profile [dict] loaded profile.toml
+    @param ships_often [tuple(float, str), nil] external cadence evidence, from
+      jobhunt.cadence.ships_often_score; nil leaves the term unknown
     @return [dict] score, coverage, per-term evidence, boilerplate length
     """
     weights = profile.get("culture", {})
@@ -135,10 +141,14 @@ def assess(rows, profile):
     for term, weight in sorted(weights.items(), key=lambda kv: -kv[1]):
         probe = PROBES.get(term)
         if probe is None:
-            terms.append({"term": term, "weight": weight, "score": None,
-                          "why": "unknown — needs commit history or a blog feed"})
-            continue
-        frac, why = probe(rows)
+            supplied = ships_often if term == "ships often" else None
+            if supplied is None:
+                terms.append({"term": term, "weight": weight, "score": None,
+                              "why": "unknown — needs commit history or a blog feed"})
+                continue
+            frac, why = supplied
+        else:
+            frac, why = probe(rows)
         earned += weight * frac
         possible += weight
         terms.append({"term": term, "weight": weight, "score": round(frac, 2), "why": why})
