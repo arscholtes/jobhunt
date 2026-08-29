@@ -1,5 +1,8 @@
 """SQLite persistence. One file, no migrations framework, no ORM."""
-import sqlite3, pathlib, json, datetime
+import datetime
+import json
+import pathlib
+import sqlite3
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DB = ROOT / "data" / "jobhunt.db"

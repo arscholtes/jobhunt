@@ -18,7 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from jobhunt import digest, store  # noqa: E402
+from jobhunt import digest, store
 
 
 def scores(*values):

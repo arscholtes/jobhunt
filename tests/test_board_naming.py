@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from jobhunt import cli  # noqa: E402
+from jobhunt import cli
 
 
 def row(company="podium81", jid="greenhouse:podium81:1"):

@@ -7,7 +7,8 @@ import pathlib
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-from jobhunt import cadence, culture, profile as profile_mod, store  # noqa: E402
+from jobhunt import cadence, culture, store
+from jobhunt import profile as profile_mod
 
 
 def main():

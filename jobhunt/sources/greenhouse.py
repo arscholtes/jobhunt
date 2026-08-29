@@ -1,5 +1,6 @@
 """Greenhouse public job board API."""
 import re
+
 from ._http import get_json
 
 API = "https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true"

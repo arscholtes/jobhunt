@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from jobhunt import cadence  # noqa: E402
+from jobhunt import cadence
 
 
 def days_ago(n):

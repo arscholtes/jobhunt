@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from jobhunt import gate  # noqa: E402
+from jobhunt import gate
 
 
 def job(title="Backend Engineer", description="", location="Remote", remote=1):

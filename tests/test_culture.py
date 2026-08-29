@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from jobhunt import culture  # noqa: E402
+from jobhunt import culture
 
 HEAD = "At ExampleCo we build with Ruby, Rails, Postgres, Kubernetes and Go. " * 4
 TAIL = " ExampleCo is an equal opportunity employer. Benefits include Terraform training. " * 4

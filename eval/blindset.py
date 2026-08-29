@@ -21,7 +21,7 @@ import re
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-from jobhunt import store  # noqa: E402
+from jobhunt import store
 
 # Bands to sample from, and how many of each. Deliberately includes disqualified
 # postings: an exclusion rule that is too aggressive is invisible in a shortlist.
