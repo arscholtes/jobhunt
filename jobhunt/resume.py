@@ -15,7 +15,8 @@ contact in the body, standard section headings, real text.
 
 What varies per cell is which evidence leads — not how it is laid out.
 """
-import pathlib, tomllib
+import pathlib
+import tomllib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PATH = ROOT / "resume.toml"

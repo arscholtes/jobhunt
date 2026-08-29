@@ -1,5 +1,7 @@
 """Minimal JSON fetch. Stdlib only, so the tool has no install step."""
-import json, urllib.request, urllib.error
+import json
+import urllib.error
+import urllib.request
 
 UA = "jobhunt/0.1 (personal job search; contact arscholtes@gmail.com)"
 

@@ -19,7 +19,7 @@ the half of a job search that actually rots, and until now nothing surfaced it.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 DEFAULT_PERCENTILE = 0.90
 DEFAULT_LIMIT = 20

@@ -12,10 +12,17 @@
 Nothing in this tool contacts an employer. Drafting and sending are separate,
 deliberate steps a human takes.
 """
-import argparse, json, pathlib, sys, textwrap
+import argparse
+import json
+import pathlib
+import sys
+import textwrap
 
-from . import signals as signals_mod, store, profile as profile_mod, score as score_mod
-from . import gate, resume, culture, requirements as req_mod
+from . import culture, gate, resume, store
+from . import profile as profile_mod
+from . import requirements as req_mod
+from . import score as score_mod
+from . import signals as signals_mod
 from .sources import fetch as fetch_source
 from .sources._http import FetchError
 

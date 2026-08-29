@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from jobhunt import store  # noqa: E402
+from jobhunt import store
 
 
 def job(jid="src:co:1", title="Backend Engineer"):
