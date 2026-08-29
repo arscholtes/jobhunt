@@ -3,6 +3,7 @@
     jobhunt fetch                 poll every board in profile.toml
     jobhunt score                 (re)score everything stored
     jobhunt list [--all] [-n 20]  ranked shortlist
+    jobhunt requirements [-n 30]  what the top postings actually ask for
     jobhunt show <job-id>         one posting in full
     jobhunt gate <job-id>         which resume variant it gets, and why
     jobhunt resume <job-id>       render that variant
@@ -14,7 +15,7 @@ deliberate steps a human takes.
 import argparse, json, pathlib, sys, textwrap
 
 from . import signals as signals_mod, store, profile as profile_mod, score as score_mod
-from . import gate, resume, culture
+from . import gate, resume, culture, requirements as req_mod
 from .sources import fetch as fetch_source
 from .sources._http import FetchError
 
@@ -116,6 +117,28 @@ def cmd_list(args):
         print(f"       {r['id']}" + (f"   ⚑ {labels}" if labels else ""))
 
 
+def cmd_requirements(args):
+    prof = _load_profile(args)
+    con = store.connect()
+    rows = con.execute(
+        """SELECT j.* FROM jobs j JOIN scores s ON s.job_id = j.id
+           WHERE s.total >= 0 ORDER BY s.total DESC LIMIT ?""", (args.n,)).fetchall()
+
+    # The same boilerplate that distorts scoring would distort a demand count: a
+    # stack blurb repeated on every advert is one company's marketing, not the market.
+    by_company = {}
+    for r in rows:
+        by_company.setdefault(r["company"], []).append(r)
+    all_rows = con.execute("SELECT * FROM jobs").fetchall()
+    corpus = {}
+    for r in all_rows:
+        corpus.setdefault(r["company"], []).append(r)
+    boiler = {c: (culture.boilerplate(corpus.get(c, [])), culture.boilerplate_suffix(corpus.get(c, [])))
+              for c in by_company}
+
+    print(req_mod.render(req_mod.summarise([dict(r) for r in rows], prof, boilerplate=boiler)))
+
+
 def cmd_show(args):
     con = store.connect()
     r = con.execute(
@@ -194,6 +217,10 @@ def main(argv=None):
     p.add_argument("-n", type=int, default=25)
     p.add_argument("--all", action="store_true", help="ignore the score floor")
     p.set_defaults(fn=cmd_list)
+
+    p = sub.add_parser("requirements", help="what the top postings actually ask for")
+    p.add_argument("-n", type=int, default=30, help="how many of the top postings to read")
+    p.set_defaults(fn=cmd_requirements)
 
     p = sub.add_parser("show", help="one posting in full")
     p.add_argument("job_id")
