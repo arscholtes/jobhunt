@@ -81,9 +81,19 @@ def _rank(item, shape, domain):
 
 
 def _select(items, shape, domain, limit=None):
-    keep = [i for i in items if _eligible(i, shape, domain)]
-    keep.sort(key=lambda i: _rank(i, shape, domain), reverse=True)
-    return keep[:limit] if limit else keep
+    """Pick the most relevant items, then restore the order they were written in.
+
+    Rank decides WHICH bullets survive; it should not decide what order a reader
+    meets them in. Sorting the survivors by score made a role open with its
+    trophy and mention being founded third — each bullet strong, the sequence
+    incoherent. Authoring order is the narrative, so the winners go back into it.
+    """
+    keep = [(n, i) for n, i in enumerate(items) if _eligible(i, shape, domain)]
+    keep.sort(key=lambda pair: _rank(pair[1], shape, domain), reverse=True)
+    if limit:
+        keep = keep[:limit]
+    keep.sort(key=lambda pair: pair[0])
+    return [i for _, i in keep]
 
 
 def summary(facts, shape, domain):

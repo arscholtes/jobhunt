@@ -121,7 +121,16 @@ def select(items, job, shape=None, domain=None, limit=BULLETS_PER_ROLE):
 # lines and found requirements in 0 of 192 postings — a parser written against a
 # format the data does not use, whose empty output reads exactly like "you match
 # every requirement".
-HTML_HEADING = re.compile(r"<h[1-6][^>]*>(.*?)</h[1-6]>", re.I | re.S)
+# A heading is not always a heading tag. Measured on the live corpus, 744 postings
+# introduce their requirements with <p><strong>Requirements</strong></p> and only
+# 249 use a real <h> tag — so matching h1-h6 alone left the gap analysis blank on
+# three quarters of the shortlist, and blank while claiming the posting stated
+# nothing. A bold or strong paragraph carrying only its own text is a heading in
+# every way that matters here.
+HTML_HEADING = re.compile(
+    r"<h[1-6][^>]*>(.*?)</h[1-6]>"
+    r"|<p[^>]*>\s*<(?:strong|b)[^>]*>(.*?)</(?:strong|b)>\s*</p>",
+    re.I | re.S)
 HTML_LI = re.compile(r"<li[^>]*>(.*?)</li>", re.I | re.S)
 TAG = re.compile(r"<[^>]+>")
 # Lists that are not asks. Reporting these as gaps produces "no evidence of
@@ -140,7 +149,7 @@ def _html_requirements(text):
     out, seen = [], set()
     headings = list(HTML_HEADING.finditer(text))
     for i, h in enumerate(headings):
-        label = _strip(h.group(1))
+        label = _strip(h.group(1) or h.group(2) or "")
         if not REQUIREMENT_HEADING.search(label) or NOT_REQUIREMENTS.search(label):
             continue
         end = headings[i + 1].start() if i + 1 < len(headings) else len(text)
