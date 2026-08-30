@@ -20,7 +20,7 @@ import pathlib
 import sys
 import textwrap
 
-from . import culture, digest, gate, notify, resume, store, tailor
+from . import culture, digest, export, gate, notify, resume, store, tailor
 from . import profile as profile_mod
 from . import requirements as req_mod
 from . import score as score_mod
@@ -169,6 +169,44 @@ def cmd_requirements(args):
     print(req_mod.render(req_mod.summarise([dict(r) for r in rows], prof, boilerplate=boiler)))
 
 
+def sheet_reference(path):
+    """How to reach the spreadsheet, in both places he reads the digest.
+
+    No single URL works in both. A file:// link is live in Mail on the desktop and
+    inert in Mail on iOS, so shipping only that ships something that silently does
+    nothing on the device he actually reads this on. The desktop gets the link and
+    the phone gets the location in words.
+
+    @param path [pathlib.Path]
+    @return [Array<String>]
+    """
+    lines = [f"spreadsheet   file://{path}"]
+    try:
+        rel = path.relative_to(export.ICLOUD.parent)
+        lines.append(f"              on the phone: iCloud Drive > {' > '.join(rel.parts)}")
+    except ValueError:
+        lines.append(f"              on the phone: {path.name}, in iCloud Drive")
+    return lines
+
+
+def _write_sheet(con, bar):
+    """Regenerate the browsable shortlist. The whole thing, not today's delta.
+
+    @return [pathlib.Path, nil] nil when it could not be written
+    """
+    rows = con.execute(
+        """SELECT j.*, s.total, COALESCE(a.status, '') AS status
+           FROM jobs j JOIN scores s ON s.job_id = j.id
+           LEFT JOIN applications a ON a.job_id = j.id
+           WHERE s.total >= ? ORDER BY s.total DESC""", (bar,)).fetchall()
+    try:
+        return export.write([dict(r) for r in rows])
+    except OSError as e:
+        # iCloud not mounted is not a reason to lose the digest.
+        print(f"  sheet not written: {e}")
+        return None
+
+
 def cmd_digest(args):
     """The daily shortlist, and the one thing a scheduled job calls.
 
@@ -188,8 +226,18 @@ def cmd_digest(args):
     picked, held = digest.select_with_overflow(rows, bar, limit=args.limit)
 
     print(f"bar {bar:.1f} (corpus {int(digest.DEFAULT_PERCENTILE * 100)}th percentile)")
+
+    # Written every run and regenerated whole, so it cannot drift from the
+    # database. It carries the entire shortlist rather than the unsent delta —
+    # it is for browsing, and a sheet holding only this morning's new postings
+    # would not be that.
+    sheet = _write_sheet(con, bar)
+
     if not picked:
         print("nothing new above the bar — sending nothing")
+        if sheet:
+            for line in sheet_reference(sheet):
+                print(line)
         return
 
     prof = _load_profile(args) if getattr(args, "profile", None) is not None else None
@@ -213,6 +261,11 @@ def cmd_digest(args):
     if off:
         print(f"\n  ! {off} of {len(picked)} are shapes you are not targeting "
               f"({', '.join(sorted(targets))})")
+
+    if sheet:
+        print()
+        for line in sheet_reference(sheet):
+            print(line)
 
     if args.dry_run:
         print("\ndry run — nothing sent, nothing marked notified")
