@@ -43,6 +43,12 @@ FRICTION = {
     "high": ("myworkdayjobs.com", "workday.com", "taleo.net", "icims.com", "successfactors"),
 }
 
+# The board a posting was fetched from, when its apply link does not say.
+SOURCE_FRICTION = {
+    "greenhouse": "low", "lever": "low", "ashby": "low", "workable": "low",
+    "smartrecruiters": "medium",
+}
+
 STACK = {
     "ruby": r"\bruby\b|\brails\b", "javascript": r"\bjavascript\b|\bnode\b|\breact\b|\bvue\b",
     "typescript": r"\btypescript\b", "python": r"\bpython\b|\bdjango\b|\bfastapi\b",
@@ -70,6 +76,12 @@ def extract(job):
         if any(h in host for h in hosts):
             friction = level
             break
+    if friction == "unknown":
+        # A company-hosted careers page in front of an ATS form — brex.com,
+        # careers.datadoghq.com — has an unrecognisable host and a perfectly
+        # knowable form behind it. The row records which board it was fetched
+        # from, and that is authoritative in a way the URL is not.
+        friction = SOURCE_FRICTION.get(job.get("source"), "unknown")
 
     comp = COMP.search(body)
     comp_low = int(comp.group(1)) if comp else None
