@@ -292,6 +292,126 @@ class WithheldTests(unittest.TestCase):
         self.assertIn("withheld", out.lower())
 
 
+class SpecificityTests(unittest.TestCase):
+    """One incidental word must not mark a requirement covered.
+
+    Measured on the real corpus: 171 requirements produced only 39 gaps, and the
+    matches were things like "4+ years of professional software DEVELOPMENT"
+    answered by "recruited and DEVELOPED the people". A term that appears all over
+    the resume is weak evidence; the ask lives in the rare word.
+
+    This section decides whether he applies. Telling him he is covered on
+    Kubernetes because he once wrote "production" is the worst failure available
+    to it — worse than no gap section, because he would act on it.
+    """
+
+    FACTS = {  # noqa: RUF012 — a fixture, read only
+        "skill_groups": [{"name": "Backend", "terms": ["ruby", "rails", "postgres"]}],
+        "roles": [{"company": "x", "title": "Eng", "bullets": [
+            {"text": "Built and developed a Rails platform in production", "weight": 9},
+            {"text": "Developed the reporting surface in production", "weight": 8},
+            {"text": "Developed internal tooling for the platform", "weight": 7},
+        ]}],
+        "projects": [],
+    }
+
+    MARKET = {"kubernetes": 0.05, "rails": 0.03, "production": 0.4,  # noqa: RUF012
+              "reporting": 0.1, "developed": 0.6}
+
+    def test_a_shared_generic_word_alone_does_not_cover_a_requirement(self):
+        _, gaps = tailor.evidence(["Deep Kubernetes experience in production"],
+                                  self.FACTS, market=self.MARKET)
+        self.assertEqual(len(gaps), 1, "matched on 'production' alone")
+
+    def test_a_shared_specific_word_does_cover_it(self):
+        _, gaps = tailor.evidence(["Strong Rails experience"], self.FACTS, market=self.MARKET)
+        self.assertEqual(gaps, [])
+
+    def test_a_word_repeated_across_the_resume_is_treated_as_generic(self):
+        # "developed" and "production" appear in every bullet here.
+        self.assertFalse(tailor.is_specific("developed", self.FACTS))
+        self.assertFalse(tailor.is_specific("production", self.FACTS))
+
+    def test_a_word_appearing_once_is_treated_as_specific(self):
+        self.assertTrue(tailor.is_specific("reporting", self.FACTS))
+
+    def test_a_word_absent_from_the_resume_is_specific_by_definition(self):
+        self.assertTrue(tailor.is_specific("kubernetes", self.FACTS))
+
+    def test_without_a_market_sample_nothing_is_claimed_partial(self):
+        # The fallback cannot tell an ask from boilerplate, so it says less.
+        matched, _ = tailor.evidence(["Kubernetes and Rails in production"], self.FACTS)
+        self.assertFalse(any(m.get("partial") for m in matched))
+
+    def test_a_requirement_with_no_specific_terms_falls_back_to_coverage(self):
+        # "Built things in production" has no rare ask in it; refusing to match it
+        # would report a gap he cannot act on.
+        _, gaps = tailor.evidence(["Built things in production"], self.FACTS)
+        self.assertEqual(gaps, [])
+
+    def test_a_partial_match_is_reported_as_such_rather_than_as_covered(self):
+        matched, gaps = tailor.evidence(["Kubernetes and Rails in production"],
+                                        self.FACTS, market=self.MARKET)
+        self.assertTrue(any(m.get("partial") for m in matched) or gaps,
+                        "half-matched requirement reported as fully covered")
+
+    def test_the_unmatched_part_is_named_so_he_knows_what_is_missing(self):
+        matched, _ = tailor.evidence(["Kubernetes and Rails in production"],
+                                     self.FACTS, market=self.MARKET)
+        if matched and matched[0].get("partial"):
+            self.assertIn("kubernetes", " ".join(matched[0]["missing"]).lower())
+
+
+class MarketVocabularyTests(unittest.TestCase):
+    """What counts as an ask is decided by the market, not by his resume.
+
+    Measuring rarity against his own writing alone made every word he happens not
+    to use into an unmet requirement — "professional", "full-time", "passionate" —
+    and 127 of 169 requirements came back partial, which is as useless as all of
+    them coming back covered.
+
+    A word in most job postings is the genre's boilerplate. A word in few of them
+    is the actual ask. There are four thousand postings on disk to measure that
+    against, so it is measured rather than guessed.
+    """
+
+    MARKET = {"experience": 0.9, "professional": 0.7, "team": 0.95,
+              "kubernetes": 0.04, "rails": 0.03, "production": 0.4}
+
+    def test_a_word_common_across_postings_is_not_an_ask(self):
+        self.assertFalse(tailor.is_ask("experience", self.MARKET))
+
+    def test_a_word_rare_across_postings_is_an_ask(self):
+        self.assertTrue(tailor.is_ask("kubernetes", self.MARKET))
+
+    def test_an_unseen_word_is_not_assumed_to_be_an_ask(self):
+        # Absence from the market sample is not evidence of rarity; a typo would
+        # otherwise become a requirement he can never meet.
+        self.assertFalse(tailor.is_ask("qwertyuiop", self.MARKET))
+
+    def test_boilerplate_alone_does_not_make_a_gap(self):
+        facts = SpecificityTests.FACTS
+        _, gaps = tailor.evidence(["Professional experience on a team"], facts,
+                                  market=self.MARKET)
+        self.assertEqual(gaps, [])
+
+    def test_an_unmet_ask_is_still_a_gap(self):
+        facts = SpecificityTests.FACTS
+        _, gaps = tailor.evidence(["Deep Kubernetes experience"], facts, market=self.MARKET)
+        self.assertEqual(len(gaps), 1)
+
+    def test_a_met_ask_is_covered_without_being_marked_partial(self):
+        facts = SpecificityTests.FACTS
+        matched, gaps = tailor.evidence(["Strong Rails experience"], facts, market=self.MARKET)
+        self.assertEqual(gaps, [])
+        self.assertFalse(matched[0].get("partial"))
+
+    def test_without_a_market_sample_it_falls_back_rather_than_failing(self):
+        facts = SpecificityTests.FACTS
+        matched, gaps = tailor.evidence(["Strong Rails experience"], facts)
+        self.assertEqual(gaps, [])
+
+
 class FrictionTests(unittest.TestCase):
     def test_a_greenhouse_url_is_low_friction(self):
         self.assertEqual(tailor.friction("https://job-boards.greenhouse.io/x/jobs/1"), "low")
