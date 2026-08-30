@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import html
 import re
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 # Applicant-tracking systems, by how much of a person's evening they cost.
@@ -343,6 +344,91 @@ def _corpus_frequency(facts):
     return {t: n / len(entries) for t, n in counts.items()}
 
 
+# Proper nouns that are not technologies. Capitalisation alone would read these
+# as named tools.
+NOT_TECH = {
+    "english", "spanish", "french", "german", "we", "our", "you", "your", "i",
+    "monday", "friday", "us", "eu", "uk", "usa", "america", "european",
+    "bachelor", "master", "phd", "bs", "ms", "ba", "ma",
+}
+# Words that open a requirement line by grammar rather than by being a name.
+# Measured across 10,195 requirement lines in the corpus: these are the framing
+# words, in frequency order. Excluding EVERY capitalised opener instead threw
+# away the technology whenever a line began with it — "Rails experience",
+# "Kubernetes in production" — which is a common way to write one.
+REQUIREMENT_OPENERS = {
+    "experience", "strong", "ability", "a", "an", "the", "you", "your", "proven",
+    "familiarity", "demonstrated", "excellent", "deep", "proficiency", "hands-on",
+    "prior", "background", "comfort", "comfortable", "knowledge", "bachelor",
+    "demonstrates", "track", "have", "has", "exceptional", "high", "clear",
+    "understanding", "are", "is", "solid", "working", "expertise", "skilled",
+    "passion", "passionate", "willingness", "eagerness", "desire", "must",
+    "should", "we", "our", "in", "at", "as", "with", "and", "or", "self",
+    "excited", "curious", "committed", "able", "capable", "fluent", "adept",
+    "extensive", "significant", "substantial", "several", "minimum", "at-least",
+    # The tail of the same measurement: verbs and adjectives that open a
+    # requirement line. Anything NOT here in that position is read as a name,
+    # which is what lets "Rails experience" and "Kubernetes in production" work.
+    "care", "cares", "uphold", "bring", "brings", "can", "enjoy", "enjoys",
+    "thrive", "thrives", "possess", "stay", "communicate", "collaborate",
+    "advanced", "analytical", "collaborative", "communication", "curiosity",
+    "detail-oriented", "direct", "effective", "experienced", "expert", "exposure",
+    "fluency", "genuine", "good", "highly", "history", "interest", "motivation",
+    "openness", "operational", "outstanding", "practical", "preferred",
+    "previous", "professional", "proficient", "self-starter", "skill", "some",
+    "sound", "strategic", "superior", "technical", "this", "thorough", "work",
+    "adaptability", "alignment", "people", "project", "systems", "data-driven",
+}
+SENTENCE_START = re.compile(r"(?:^|[.!?]\s+|\n\s*)([A-Z][\w+#.-]*)")
+# Kubernetes, Terraform, Go, Node.js, C#, C++, CI/CD.
+PROPER_NOUN = re.compile(r"\b([A-Z][a-zA-Z0-9]*(?:[+#]|\.[a-zA-Z]+)?)\b")
+ACRONYM = re.compile(r"\b([A-Z]{2,6})\b")
+# "7+ years", "5 years". A bare number is a version, not a duration.
+YEARS = re.compile(r"(\d{1,2})\s*\+?\s*(?:-\s*\d{1,2}\s*)?years?\b", re.I)
+
+
+_MIDSENTENCE = None
+
+
+def checkable(requirement, names=None):
+    """What in this requirement can actually be checked.
+
+    A technology or proper noun, a quantity of years, a credential — those are
+    answerable. A disposition is not: "strong communication" and "cares about
+    societal impact" name nothing anyone can verify against a resume, and
+    reporting them as gaps produced a list entirely of soft skills while every
+    hard ask came back met.
+
+    @param requirement [String] verbatim, with its capitalisation intact
+    @return [Hash] {tech, years}
+    """
+    text = requirement or ""
+    # Only a measured framing word is dropped for opening the line. Anything else
+    # in that position is a name — a line may legitimately begin with its subject.
+    openers = {m.group(1).lower() for m in SENTENCE_START.finditer(text)
+               if m.group(1).lower() in REQUIREMENT_OPENERS}
+    tech = set()
+    for m in PROPER_NOUN.finditer(text):
+        word = m.group(1)
+        low = word.lower()
+        if low in openers or low in NOT_TECH or low in STOP or len(low) < 2:
+            continue
+        tech.add(low)
+    for m in ACRONYM.finditer(text):
+        low = m.group(1).lower()
+        if low not in NOT_TECH and low not in STOP:
+            tech.add(low)
+
+    years = YEARS.search(text)
+    return {"tech": tech, "years": int(years.group(1)) if years else None}
+
+
+def is_actionable(requirement):
+    """@return [Boolean] whether this ask names anything that can be checked."""
+    found = checkable(requirement)
+    return bool(found["tech"]) or found["years"] is not None
+
+
 def market_frequency(descriptions):
     """How often each term appears across the postings on disk.
 
@@ -400,67 +486,116 @@ def _matches(want, have):
     """
     hit = set()
     for w in want:
-        for h in have:
-            if w == h or (min(len(w), len(h)) >= STEM_MIN
-                          and (w.startswith(h) or h.startswith(w))):
-                hit.add(w)
-                break
+        if any(_same_word(w, h) for h in have):
+            hit.add(w)
     return hit
 
 
-def evidence(reqs, facts, market=None):
+def _same_word(a, b):
+    """Whether two terms are the same word written differently.
+
+    A shared prefix alone matched "java" to "javascript", reporting a Java
+    requirement as met by JavaScript experience. A morphological variant differs
+    by an ending, not by six characters, so the length gap is bounded.
+    """
+    if a == b:
+        return True
+    if min(len(a), len(b)) < STEM_MIN:
+        return False
+    return (a.startswith(b) or b.startswith(a)) and abs(len(a) - len(b)) <= 3
+
+
+def years_from(facts, today=None):
+    """Total professional experience, in years, from the dated roles.
+
+    Overlapping roles are merged rather than summed: running a company alongside
+    a job is not twice the experience, and adding them would answer "7+ years"
+    with a number nobody would recognise.
+
+    @return [Float, nil] nil when no role carries dates
+    """
+    today = today or datetime.now(timezone.utc).date()
+    spans = []
+    for role in facts.get("roles") or []:
+        start, end = role.get("start"), role.get("end")
+        if not start:
+            continue
+        try:
+            s_y, s_m = (int(x) for x in str(start).split("-")[:2])
+            if not end or str(end).lower() in ("present", "current", "now"):
+                e_y, e_m = today.year, today.month
+            else:
+                e_y, e_m = (int(x) for x in str(end).split("-")[:2])
+        except (ValueError, TypeError):
+            continue
+        spans.append((s_y * 12 + s_m, e_y * 12 + e_m))
+    if not spans:
+        return None
+
+    spans.sort()
+    merged = [list(spans[0])]
+    for a, b in spans[1:]:
+        if a <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], b)
+        else:
+            merged.append([a, b])
+    return round(sum(b - a for a, b in merged) / 12, 1)
+
+
+def evidence(reqs, facts, market=None, years_of_experience=None):
     """Match each stated requirement, and be honest about how well.
 
-    Three outcomes, because the middle one is where most postings land and is the
-    only one he can act on: covered, partial with the unmet ask named, or a gap.
+    ONLY CHECKABLE ASKS COUNT. An earlier version decided what a requirement asked
+    for from how rare its terms were across the corpus, which inverts on a tech
+    corpus: Kubernetes, AWS and Terraform appear in many postings BECAUSE they
+    matter, so rarity classified them as boilerplate and dropped them, while
+    "societal impacts and ethics" survived by being unusual. Every hard ask on a
+    real posting came back met and the gap list was entirely soft skills.
 
-    What counts as an ask comes from the market when a sample is supplied — a
-    term in most postings is boilerplate, a term in few is the requirement. Judged
-    against his resume alone, every word he happens not to write became an unmet
-    ask and 127 of 169 requirements came back partial.
+    A technology, a proper noun or a quantity of years can be checked against a
+    resume. A disposition cannot, and is neither a gap nor a partial — reporting
+    "strong communication" as unmet gives him nothing to act on.
 
-    @param market [Hash, nil] term -> share of postings, from market_frequency
+    @param market [Hash, nil] retained for callers; no longer decides what an ask is
+    @param years_of_experience [Float, nil] defaults to the dated roles in facts
     @return [Array(Array<Hash>, Array<String>)] (matched, gaps)
     """
     if not reqs:
         return [], []
 
     corpus = _corpus(facts)
-    freq = _corpus_frequency(facts)
+    have_years = years_of_experience
+    if have_years is None:
+        have_years = years_from(facts)
+
     matched, gaps = [], []
-
     for req in reqs:
-        want = _terms(req)
-        if not want:
-            continue
+        asks = checkable(req)
+        tech, wants_years = asks["tech"], asks["years"]
 
-        # Without a market sample there is no way to tell an ask from the
-        # genre's boilerplate, so match on everything and never claim partial —
-        # a confident "you are missing X" drawn from no evidence is worse than
-        # saying less.
-        asks = {t for t in want if is_ask(t, market)} if market else set()
-        target = asks or want
-        # A requirement made only of boilerplate asks for nothing in particular.
-        # It is not a gap, and there is nothing specific to show against it.
-        if market and not asks:
-            matched.append({"requirement": req, "evidence": [], "boilerplate": True})
+        if not tech and wants_years is None:
+            # A disposition. Not answerable, so not a gap.
+            matched.append({"requirement": req, "evidence": [], "soft": True})
             continue
 
         hits, answered = [], set()
         for text, terms in corpus:
-            shared = _matches(target, terms)
+            shared = _matches(tech, terms)
             if shared:
                 hits.append((len(shared), text))
                 answered |= shared
 
-        if not answered:
+        missing = sorted(tech - answered)
+        if wants_years is not None and have_years is not None and have_years < wants_years:
+            missing.append(f"{wants_years}+ years (you have about {have_years:g})")
+
+        if not answered and missing:
             gaps.append(req)
             continue
 
         hits.sort(key=lambda h: -h[0])
         entry = {"requirement": req,
                  "evidence": [t for _, t in hits[:EVIDENCE_PER_REQUIREMENT]]}
-        missing = sorted(target - answered) if (market and asks) else []
         if missing:
             entry["partial"] = True
             entry["missing"] = missing

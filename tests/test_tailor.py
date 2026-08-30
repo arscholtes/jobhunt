@@ -338,10 +338,16 @@ class SpecificityTests(unittest.TestCase):
     def test_a_word_absent_from_the_resume_is_specific_by_definition(self):
         self.assertTrue(tailor.is_specific("kubernetes", self.FACTS))
 
-    def test_without_a_market_sample_nothing_is_claimed_partial(self):
-        # The fallback cannot tell an ask from boilerplate, so it says less.
+    def test_partial_no_longer_depends_on_a_market_sample(self):
+        """What an ask is comes from the requirement itself now, not the corpus.
+
+        The market-frequency rule needed a sample and got the answer backwards on
+        a tech corpus. Whether a requirement names a checkable thing is visible in
+        the sentence, so no sample is needed and partial fires either way.
+        """
         matched, _ = tailor.evidence(["Kubernetes and Rails in production"], self.FACTS)
-        self.assertFalse(any(m.get("partial") for m in matched))
+        self.assertTrue(any(m.get("partial") for m in matched))
+        self.assertIn("kubernetes", " ".join(matched[0].get("missing", [])))
 
     def test_a_requirement_with_no_specific_terms_falls_back_to_coverage(self):
         # "Built things in production" has no rare ask in it; refusing to match it
