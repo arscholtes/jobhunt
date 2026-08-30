@@ -18,6 +18,8 @@ effort; it is not this module's business to hide it.
 """
 import re
 
+from . import location as location_mod
+
 # Ordered. First match wins, so the specific shapes are listed before the
 # catch-all "software engineer", which would otherwise swallow all of them.
 SHAPES = [
@@ -137,6 +139,11 @@ def classify(job):
         reasons.append(f"shape=generic (title {job.get('title')!r} does not name an "
                        f"engineering role — body not used)")
 
+    # The fallback chooses a RESUME. It must not also decide what kind of role
+    # this is: overwriting the shape here made a frontend posting report itself as
+    # fullstack, and nothing downstream could tell that six of twenty selected
+    # roles were frontend, ML or IT.
+    role_shape = shape
     if shape in FALLBACK:
         reasons.append(f"shape {shape} has no resume of its own -> {FALLBACK[shape]}")
         shape = FALLBACK[shape]
@@ -148,7 +155,7 @@ def classify(job):
         domain = "general"
         reasons.append("domain=general (no domain signal)")
 
-    return shape, domain, reasons
+    return shape, domain, reasons, role_shape
 
 
 def flags(job):
@@ -165,6 +172,12 @@ def flags(job):
         m = re.search(pattern, body)
         if m:
             out.append((name, m.group(0).strip()))
+
+    # The location field says this outright; REGION_LOCK only reads title tags
+    # and body phrasing, and missed every Dublin and São Paulo posting.
+    where = location_mod.classify(job.get("location"))
+    if where == "international":
+        out.append(("international", location_mod.country(job.get("location")) or "outside the US"))
 
     m = re.search(LEVEL_BELOW_TITLE, _hay(job.get("title"))) or re.search(LEVEL_BELOW_BODY, body)
     if m:
@@ -188,6 +201,7 @@ FLAG_LABELS = {
     "degree_hard": "degree required",
     "degree_soft": "degree preferred",
     "equivalency_ok": "experience accepted",
+    "international": "international",
 }
 
 
@@ -200,15 +214,23 @@ def flag_labels(job):
     @param job [Hash] a posting
     @return [String] e.g. "region-locked · above level", or "" when clean
     """
-    return " · ".join(FLAG_LABELS.get(name, name) for name, _ in flags(job))
+    parts = []
+    for name, why in flags(job):
+        label = FLAG_LABELS.get(name, name)
+        # The country matters more than the category: whether to chase a visa is
+        # a different question per country.
+        parts.append(f"{label} ({why})" if name == "international" else label)
+    return " · ".join(parts)
 
 
 def decide(job):
     """Full gate decision for one posting."""
-    shape, domain, reasons = classify(job)
+    shape, domain, reasons, role_shape = classify(job)
     return {
         "variant": f"{shape}.{domain}",
         "shape": shape,
+        # What the posting actually is, before the resume fallback flattened it.
+        "role_shape": role_shape,
         "domain": domain,
         "reasons": reasons,
         "flags": flags(job),

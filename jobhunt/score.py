@@ -8,6 +8,8 @@ Culture fit is not scored here — that needs research the posting cannot supply
 """
 import re
 
+from . import location as location_mod
+
 WEIGHTS = {"title": 30, "skills": 40, "interests": 15, "location": 15}
 
 
@@ -122,7 +124,15 @@ def score(job, profile, boilerplate="", suffix=""):
         out["interests"] = 0
 
     loc = _terms(job.get("location") or "")
-    if job.get("remote"):
+    where = location_mod.classify(job.get("location"))
+    if where == "international":
+        # A domestic move is a tradeoff against comp. This one needs a visa, and
+        # the two are different in kind — scoring them the same put eleven of the
+        # first twenty digest slots in Dublin, London and São Paulo. Not excluded:
+        # some of these companies sponsor, and that is his call.
+        out["location"] = round(WEIGHTS["location"]
+                                * search.get("international_weight", 0.05), 1)
+    elif job.get("remote"):
         out["location"] = WEIGHTS["location"]
     elif any(_hit(term, loc) for term in search["locations"]):
         out["location"] = WEIGHTS["location"]

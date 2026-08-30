@@ -19,6 +19,8 @@ the half of a job search that actually rots, and until now nothing surfaced it.
 
 from __future__ import annotations
 
+import re
+
 from datetime import datetime, timezone
 
 DEFAULT_PERCENTILE = 0.90
@@ -47,6 +49,82 @@ def percentile_bar(totals, fraction=DEFAULT_PERCENTILE):
     return float(kept[idx])
 
 
+# Location noise only. LEVEL WORDS ARE DELIBERATELY NOT STRIPPED: measured across
+# the live shortlist, any similarity threshold loose enough to catch the one real
+# near-duplicate also collapsed "Software Engineer, Wallet" into "Senior Software
+# Engineer, Wallet" and two distinct teams. Those are different jobs, and a
+# collapsed posting is invisible rather than merely mis-ranked — which makes a
+# false collapse far more expensive than a missed one.
+TITLE_NOISE = re.compile(
+    r"[(\[][^)\]]*[)\]]|[-–—,]\s*(remote|hybrid|onsite|[a-z .]+,\s*[a-z]{2})\s*$",
+    re.I)
+
+
+def _normalised_title(title):
+    """@return [String] lowercased, depunctuated, location stripped. Level kept."""
+    plain = TITLE_NOISE.sub(" ", title or "")
+    plain = re.sub(r"[^a-z0-9 ]+", " ", plain.lower())
+    return " ".join(plain.split())
+
+
+def dedupe(rows):
+    """Collapse the same job listed more than once, keeping the best instance.
+
+    A posting duplicated per location eats slots the digest is rationing. The
+    count of what was collapsed is returned rather than dropped, so a genuinely
+    distinct role cannot vanish silently.
+
+    @return [Array(Array<Hash>, Integer)] (kept, collapsed)
+    """
+    best = {}
+    order = []
+    for r in rows:
+        company = (r.get("company") or "").lower()
+        title = _normalised_title(r.get("title"))
+        # A board's own requisition id groups location variants of one job and is
+        # the better key wherever the adapter captured it.
+        req = r.get("internal_job_id")
+        if req:
+            key = ("req", company, str(req))
+        elif company or title:
+            key = (company, title)
+        else:
+            # Nothing to compare on is not a duplicate; key on identity instead.
+            key = ("id", r.get("id"))
+        if key not in best:
+            best[key] = r
+            order.append(key)
+        else:
+            # Keep every location the collapsed instances named, so a genuinely
+            # distinct office is visible rather than silently dropped.
+            seen = best[key].setdefault("also_in", [])
+            for other in (r.get("location"), *(r.get("also_in") or [])):
+                if other and other != best[key].get("location") and other not in seen:
+                    seen.append(other)
+            if r.get("total", 0) > best[key].get("total", 0):
+                r["also_in"] = seen
+                best[key] = r
+    return [best[k] for k in order], len(rows) - len(best)
+
+
+# What he is aiming at. Overridable in profile.toml as search.target_shapes;
+# fde is included because forward-deployed work is arguably on target for him,
+# and that judgment is his rather than the tool's.
+DEFAULT_TARGET_SHAPES = ("backend", "fullstack", "platform", "fde", "generic")
+
+
+def off_target(role_shape, targets):
+    """Whether a posting is a kind of role he is not aiming at.
+
+    Reported, never excluded. Whether fde counts as on-target is his call, and a
+    filter that silently drops a whole category is how a tool starts deciding for
+    someone.
+
+    @return [Boolean]
+    """
+    return bool(role_shape) and role_shape not in targets
+
+
 def select(rows, bar, limit=DEFAULT_LIMIT):
     """@return [Array] the best `limit` rows at or above `bar`, best first."""
     above = [r for r in rows if r["total"] >= bar]
@@ -64,6 +142,8 @@ def select_with_overflow(rows, bar, limit=DEFAULT_LIMIT):
     """
     above = [r for r in rows if r["total"] >= bar]
     above.sort(key=lambda r: -r["total"])
+    # Dedupe BEFORE the cap, or duplicates spend slots a distinct role could use.
+    above, _ = dedupe(above)
     return above[:limit], max(0, len(above) - limit)
 
 
