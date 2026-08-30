@@ -114,3 +114,55 @@ class LinkTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MirrorTests(unittest.TestCase):
+    """The sheet mirrors the database, rather than snapshotting it once a day.
+
+    Called from cmd_score rather than only from cmd_digest, because scoring is
+    where the data actually changes. Hooking the daily digest alone left the sheet
+    up to 24 hours behind while the database moved under it — and a stale artifact
+    that looks authoritative is the failure mode that has already appeared three
+    times this week.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.path = Path(self._tmp.name) / "shortlist.csv"
+        self.con = sqlite3.connect(":memory:")
+        self.con.row_factory = sqlite3.Row
+        self.con.executescript(store.SCHEMA)
+        self.con.execute(
+            """INSERT INTO jobs (id, source, company, title, location, remote, url,
+                                 description, posted_at, first_seen, last_seen)
+               VALUES ('j','s','co','Engineer','Remote',1,'http://x','Rails',NULL,
+                       '2026-01-01','2026-01-01')""")
+        self.con.commit()
+
+    def tearDown(self):
+        self.con.close()
+        self._tmp.cleanup()
+
+    def test_scoring_regenerates_the_sheet(self):
+        args = SimpleNamespace(profile=None)
+        with mock.patch.object(store, "connect", return_value=self.con), \
+             mock.patch.object(export, "DEFAULT_PATH", self.path), \
+             mock.patch.object(cli, "_load_profile", return_value={
+                 "search": {"titles": ["engineer"], "exclude_titles": [], "locations": [],
+                            "remote_only": False},
+                 "skills": {}, "interests": {}, "dealbreakers": []}), \
+             redirect_stdout(io.StringIO()):
+            cli.cmd_score(args)
+        self.assertTrue(self.path.exists(), "scoring did not refresh the sheet")
+
+    def test_a_failed_write_does_not_take_scoring_down(self):
+        args = SimpleNamespace(profile=None)
+        with mock.patch.object(store, "connect", return_value=self.con), \
+             mock.patch.object(export, "write", side_effect=OSError("no icloud")), \
+             mock.patch.object(cli, "_load_profile", return_value={
+                 "search": {"titles": [], "exclude_titles": [], "locations": [],
+                            "remote_only": False},
+                 "skills": {}, "interests": {}, "dealbreakers": []}), \
+             redirect_stdout(io.StringIO()) as buf:
+            cli.cmd_score(args)
+        self.assertIn("scored", buf.getvalue())

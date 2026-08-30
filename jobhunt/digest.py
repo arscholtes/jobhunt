@@ -124,6 +124,21 @@ def off_target(role_shape, targets):
     return bool(role_shape) and role_shape not in targets
 
 
+def summarise_off_target(shapes, targets):
+    """Which shapes earned the marker, and how many rows carried it.
+
+    Named rather than counted, because the first version printed the TARGET set
+    beside the words "shapes you are not targeting" — telling him backend roles
+    were off-target, which is the reverse of true.
+
+    @param shapes [Iterable<String|nil>] role_shape of each selected posting
+    @param targets [Set<String>]
+    @return [Hash] {count, shapes}
+    """
+    offending = [s for s in shapes if off_target(s, targets)]
+    return {"count": len(offending), "shapes": sorted(set(offending))}
+
+
 def select(rows, bar, limit=DEFAULT_LIMIT):
     """@return [Array] the best `limit` rows at or above `bar`, best first."""
     above = [r for r in rows if r["total"] >= bar]

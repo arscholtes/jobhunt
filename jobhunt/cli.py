@@ -120,6 +120,16 @@ def cmd_score(args):
           + (f", boilerplate stripped for {stripped_companies} compan"
              f"{'y' if stripped_companies == 1 else 'ies'}" if stripped_companies else ""))
 
+    # The sheet is regenerated HERE rather than only in the daily digest, because
+    # scoring is where the data changes. Hooked to the digest alone it sat up to
+    # 24 hours behind a moving database while looking authoritative, which is the
+    # stale-derived-artifact failure this codebase has now hit several times.
+    # The hourly scan scores, so it gets a fresh sheet for free.
+    bar = digest.percentile_bar([r[0] for r in con.execute("SELECT total FROM scores")])
+    sheet = _write_sheet(con, bar)
+    if sheet:
+        print(f"sheet refreshed: {sheet.name}")
+
 
 def cmd_list(args):
     prof = _load_profile(args)
@@ -215,19 +225,20 @@ def _print_picked(picked, targets):
     Marked, never removed. Whether a frontend or ML role is worth his time is his
     call; the tool's job is only to stop one passing unnoticed.
     """
-    off = 0
+    shapes = []
     for r in picked:
         shape = gate.decide(r).get("role_shape") or "?"
+        shapes.append(shape)
         adrift = digest.off_target(shape, targets)
-        off += bool(adrift)
         note = gate.flag_labels(r)
         print(f"  {'!' if adrift else '·'} {r['total']:5.1f}  {shape:<9} "
               f"{r['company']:<12} {r['title'][:44]}" + (f"   ⚑ {note}" if note else ""))
         if r.get("also_in"):
             print(f"          also listed in {', '.join(r['also_in'][:3])}")
-    if off:
-        print(f"\n  ! {off} of {len(picked)} are shapes you are not targeting "
-              f"({', '.join(sorted(targets))})")
+    summary = digest.summarise_off_target(shapes, targets)
+    if summary["count"]:
+        print(f"\n  ! {summary['count']} of {len(picked)} are shapes you are not "
+              f"targeting: {', '.join(summary['shapes'])}")
 
 
 def cmd_digest(args):
