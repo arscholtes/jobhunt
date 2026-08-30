@@ -97,7 +97,8 @@ def score(job, profile, boilerplate="", suffix=""):
     """
     title = _terms(job["title"])
     # The title is always role-specific, so it is never stripped — only the body is.
-    body = _terms(job["title"] + " " + strip_boilerplate(job.get("description"), boilerplate, suffix))
+    role_text = strip_boilerplate(job.get("description"), boilerplate, suffix)
+    body = _terms(job["title"] + " " + role_text)
     search = profile["search"]
     out = {}
 
@@ -130,11 +131,9 @@ def score(job, profile, boilerplate="", suffix=""):
         # the two are different in kind — scoring them the same put eleven of the
         # first twenty digest slots in Dublin, London and São Paulo. Not excluded:
         # some of these companies sponsor, and that is his call.
-        out["location"] = round(WEIGHTS["location"]
-                                * search.get("international_weight", 0.05), 1)
-    elif job.get("remote"):
-        out["location"] = WEIGHTS["location"]
-    elif any(_hit(term, loc) for term in search["locations"]):
+        intl = search.get("international_weight", 0.05)
+        out["location"] = round(WEIGHTS["location"] * intl, 1)
+    elif job.get("remote") or any(_hit(term, loc) for term in search["locations"]):
         out["location"] = WEIGHTS["location"]
     elif search["remote_only"]:
         out["location"] = 0
