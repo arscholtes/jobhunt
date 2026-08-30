@@ -8,6 +8,7 @@
     jobhunt gate <job-id>         which resume variant it gets, and why
     jobhunt resume <job-id>       render that variant
     jobhunt brief <job-id>        what to match, what you don't, and where to apply
+    jobhunt digest [--dry-run]    the daily shortlist; the scheduled job calls this
     jobhunt status <job-id> <s>   interested | drafted | sent | rejected | closed
 
 Nothing in this tool contacts an employer. Drafting and sending are separate,
@@ -19,7 +20,7 @@ import pathlib
 import sys
 import textwrap
 
-from . import culture, gate, resume, store, tailor
+from . import culture, digest, gate, notify, resume, store, tailor
 from . import profile as profile_mod
 from . import requirements as req_mod
 from . import score as score_mod
@@ -168,6 +169,47 @@ def cmd_requirements(args):
     print(req_mod.render(req_mod.summarise([dict(r) for r in rows], prof, boilerplate=boiler)))
 
 
+def cmd_digest(args):
+    """The daily shortlist, and the one thing a scheduled job calls.
+
+    The bar is the corpus percentile rather than a constant, because a constant
+    was silently invalidated once already: stripping boilerplate lowered every
+    score and a fixed bar of 60 began withholding good postings, the best of them
+    missing by 0.2.
+
+    Nothing is marked notified until the send has returned. A refused connection
+    must delay a posting, never drop it — the digest is a delta defined by that
+    table, not by a time window.
+    """
+    con = store.connect()
+    totals = [r[0] for r in con.execute("SELECT total FROM scores")]
+    bar = digest.percentile_bar(totals)
+    rows = [dict(r) for r in notify.unsent(con, min_score=bar, limit=500)]
+    picked, held = digest.select_with_overflow(rows, bar, limit=args.limit)
+
+    print(f"bar {bar:.1f} (corpus {int(digest.DEFAULT_PERCENTILE * 100)}th percentile)")
+    if not picked:
+        print("nothing new above the bar — sending nothing")
+        return
+
+    verb = "would send" if args.dry_run else "sending"
+    print(f"{verb} {len(picked)} posting(s)" + (f", {held} held for tomorrow" if held else ""))
+    for r in picked:
+        print(f"  {r['total']:5.1f}  {r['company']:<14} {r['title'][:54]}")
+
+    if args.dry_run:
+        print("\ndry run — nothing sent, nothing marked notified")
+        return
+
+    try:
+        notify.send(picked)
+    except Exception as e:
+        # Deliberately not marked: the same postings ride tomorrow.
+        sys.exit(f"send failed, nothing marked: {type(e).__name__}: {e}")
+    store.mark_notified(con, [r["id"] for r in picked])
+    print(f"sent, and marked {len(picked)} notified")
+
+
 def cmd_brief(args):
     prof = _load_profile(args)
     con = store.connect()
@@ -264,6 +306,12 @@ def main(argv=None):
     p = sub.add_parser("requirements", help="what the top postings actually ask for")
     p.add_argument("-n", type=int, default=30, help="how many of the top postings to read")
     p.set_defaults(fn=cmd_requirements)
+
+    p = sub.add_parser("digest", help="the daily shortlist of what is new")
+    p.add_argument("--dry-run", action="store_true",
+                   help="show what would be sent, send nothing, mark nothing")
+    p.add_argument("--limit", type=int, default=digest.DEFAULT_LIMIT)
+    p.set_defaults(fn=cmd_digest)
 
     p = sub.add_parser("brief", help="a page to write an application from")
     p.add_argument("job_id")
