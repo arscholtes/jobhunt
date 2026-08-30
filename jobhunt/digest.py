@@ -20,7 +20,6 @@ the half of a job search that actually rots, and until now nothing surfaced it.
 from __future__ import annotations
 
 import re
-
 from datetime import datetime, timezone
 
 DEFAULT_PERCENTILE = 0.90
@@ -56,7 +55,7 @@ def percentile_bar(totals, fraction=DEFAULT_PERCENTILE):
 # collapsed posting is invisible rather than merely mis-ranked — which makes a
 # false collapse far more expensive than a missed one.
 TITLE_NOISE = re.compile(
-    r"[(\[][^)\]]*[)\]]|[-–—,]\s*(remote|hybrid|onsite|[a-z .]+,\s*[a-z]{2})\s*$",
+    r"[(\[][^)\]]*[)\]]|[-,]\s*(remote|hybrid|onsite|[a-z .]+,\s*[a-z]{2})\s*$",
     re.I)
 
 
