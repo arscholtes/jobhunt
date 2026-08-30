@@ -8,6 +8,7 @@ safe to arm.
 import io
 import sqlite3
 import sys
+import tempfile
 import unittest
 from contextlib import redirect_stdout
 from datetime import datetime, timezone
@@ -17,7 +18,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from jobhunt import cli, store  # noqa: E402
+from jobhunt import cli, export, store  # noqa: E402
 
 
 class DigestCommandTests(unittest.TestCase):
@@ -47,7 +48,12 @@ class DigestCommandTests(unittest.TestCase):
         for k, v in kw.items():
             setattr(args, k, v)
         buf = io.StringIO()
-        with mock.patch.object(store, "connect", return_value=self.con), \
+        # The export path is redirected because cmd_digest writes the real
+        # spreadsheet: without this the suite overwrites the live iCloud file
+        # with three fixture rows, which it did once before this line existed.
+        with tempfile.TemporaryDirectory() as tmp, \
+             mock.patch.object(store, "connect", return_value=self.con), \
+             mock.patch.object(export, "DEFAULT_PATH", Path(tmp) / "shortlist.csv"), \
              redirect_stdout(buf):
             cli.cmd_digest(args)
         return buf.getvalue()
@@ -100,7 +106,9 @@ class SendOrderingTests(unittest.TestCase):
         con.commit()
 
         args = SimpleNamespace(dry_run=False, limit=20, profile=None, resume=None)
-        with mock.patch.object(store, "connect", return_value=con), \
+        with tempfile.TemporaryDirectory() as tmp, \
+             mock.patch.object(store, "connect", return_value=con), \
+             mock.patch.object(export, "DEFAULT_PATH", Path(tmp) / "shortlist.csv"), \
              mock.patch("jobhunt.notify.send", side_effect=OSError("refused")), \
              redirect_stdout(io.StringIO()):
             try:
