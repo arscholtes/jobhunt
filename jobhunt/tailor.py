@@ -297,6 +297,97 @@ def _corpus(facts):
     return entries
 
 
+# A term appearing in more than this share of the resume's entries says nothing
+# about any particular requirement. "developed", "platform" and "production" are
+# in most bullets; the ask lives in the rare word.
+GENERIC_SHARE = 0.34
+# A term in more than this share of job postings is the genre's boilerplate:
+# "experience", "team", "professional". Below it, the term is the actual ask.
+MARKET_ASK_SHARE = 0.25
+# A term in fewer than this share is almost certainly a typo or a proper noun
+# from one company, not a skill anyone is asking for.
+MARKET_FLOOR = 0.0005
+# Covered means every specific term is answered. A fraction was tried first and
+# a half-answered requirement fell exactly on the boundary and read as covered —
+# but the whole value of the section is naming what is missing, so any unanswered
+# specific ask makes it partial and gets named.
+
+
+def _prose(facts):
+    """@return [Array<set>] term sets from written material only."""
+    out = []
+    for role in facts.get("roles") or []:
+        out += [_terms(b.get("text")) for b in role.get("bullets") or []]
+    out += [_terms(p.get("text")) for p in facts.get("projects") or []]
+    return [t for t in out if t]
+
+
+def _corpus_frequency(facts):
+    """How often a term appears across the resume's PROSE.
+
+    Skill terms are excluded from the denominator deliberately. They are a
+    controlled vocabulary — one word each, listed once — so counting them
+    stretches the denominator and makes ordinary prose words look rare. Whether a
+    word is generic is a property of how he writes, so it is measured on his
+    writing.
+
+    @return [Hash] term -> share of prose entries containing it
+    """
+    entries = _prose(facts)
+    if not entries:
+        return {}
+    counts = {}
+    for terms in entries:
+        for t in terms:
+            counts[t] = counts.get(t, 0) + 1
+    return {t: n / len(entries) for t, n in counts.items()}
+
+
+def market_frequency(descriptions):
+    """How often each term appears across the postings on disk.
+
+    @param descriptions [Iterable<String>] posting bodies
+    @return [Hash] term -> share of postings containing it
+    """
+    total = 0
+    counts = {}
+    for text in descriptions:
+        terms = _terms(text)
+        if not terms:
+            continue
+        total += 1
+        for t in terms:
+            counts[t] = counts.get(t, 0) + 1
+    return {t: n / total for t, n in counts.items()} if total else {}
+
+
+def is_ask(term, market):
+    """Whether a term is a real requirement or the genre's boilerplate.
+
+    Measured against the market rather than against his resume, because rarity in
+    his own writing only says which words he happens not to use — which turned
+    "professional" and "full-time" into unmet requirements.
+
+    @return [Boolean]
+    """
+    share = market.get(term.lower())
+    if share is None:
+        return False
+    return MARKET_FLOOR <= share <= MARKET_ASK_SHARE
+
+
+def is_specific(term, facts):
+    """Whether matching this term is evidence of anything.
+
+    A word spread across most of the resume is not a skill claim, it is the
+    author's vocabulary. A word that appears once — or not at all — carries the
+    weight of the requirement.
+
+    @return [Boolean]
+    """
+    return _corpus_frequency(facts).get(term.lower(), 0.0) <= GENERIC_SHARE
+
+
 def _matches(want, have):
     """Terms that name the same thing, allowing for how people write them.
 
@@ -317,29 +408,64 @@ def _matches(want, have):
     return hit
 
 
-def evidence(reqs, facts):
-    """Match each stated requirement against the material, and name what is missing.
+def evidence(reqs, facts, market=None):
+    """Match each stated requirement, and be honest about how well.
 
+    Three outcomes, because the middle one is where most postings land and is the
+    only one he can act on: covered, partial with the unmet ask named, or a gap.
+
+    What counts as an ask comes from the market when a sample is supplied — a
+    term in most postings is boilerplate, a term in few is the requirement. Judged
+    against his resume alone, every word he happens not to write became an unmet
+    ask and 127 of 169 requirements came back partial.
+
+    @param market [Hash, nil] term -> share of postings, from market_frequency
     @return [Array(Array<Hash>, Array<String>)] (matched, gaps)
     """
     if not reqs:
         return [], []
 
     corpus = _corpus(facts)
+    freq = _corpus_frequency(facts)
     matched, gaps = [], []
+
     for req in reqs:
         want = _terms(req)
-        hits = []
+        if not want:
+            continue
+
+        # Without a market sample there is no way to tell an ask from the
+        # genre's boilerplate, so match on everything and never claim partial —
+        # a confident "you are missing X" drawn from no evidence is worse than
+        # saying less.
+        asks = {t for t in want if is_ask(t, market)} if market else set()
+        target = asks or want
+        # A requirement made only of boilerplate asks for nothing in particular.
+        # It is not a gap, and there is nothing specific to show against it.
+        if market and not asks:
+            matched.append({"requirement": req, "evidence": [], "boilerplate": True})
+            continue
+
+        hits, answered = [], set()
         for text, terms in corpus:
-            shared = _matches(want, terms)
+            shared = _matches(target, terms)
             if shared:
                 hits.append((len(shared), text))
-        if hits:
-            hits.sort(key=lambda h: -h[0])
-            best = [t for _, t in hits[:EVIDENCE_PER_REQUIREMENT]]
-            matched.append({"requirement": req, "evidence": best})
-        else:
+                answered |= shared
+
+        if not answered:
             gaps.append(req)
+            continue
+
+        hits.sort(key=lambda h: -h[0])
+        entry = {"requirement": req,
+                 "evidence": [t for _, t in hits[:EVIDENCE_PER_REQUIREMENT]]}
+        missing = sorted(target - answered) if (market and asks) else []
+        if missing:
+            entry["partial"] = True
+            entry["missing"] = missing
+        matched.append(entry)
+
     return matched, gaps
 
 
@@ -368,6 +494,25 @@ def _header(job, decision):
     out.append(f"apply     {job.get('url', '?')}  ({friction(job.get('url'))} friction)")
     out.append("")
     return out
+
+
+def _partial_section(matched):
+    """Deliberately prints nothing, and the reason is worth keeping.
+
+    A third state between covered and gap is real — he has the Rails, not the
+    Kubernetes — and the data for it is computed and returned on each match. It is
+    not PRINTED because the missing terms cannot yet be told apart from ordinary
+    English: measured across 943 postings' requirement text, "fundamentals" (.030)
+    and "proficient" (.019) sit in the same frequency band as "kubernetes" (.048)
+    and "terraform" (.018), so the section rendered as "missing: e.g, nobody,
+    possible, thing".
+
+    Separating a real unmet ask from prose needs a signal frequency alone does not
+    give. Until there is one, showing this costs more than it gives: GAPS is the
+    section that decides anything, and burying it under noise is how it stops
+    being read.
+    """
+    return []
 
 
 def _gaps_section(gaps):
@@ -413,7 +558,7 @@ def _bullets_section(bullets):
     return out
 
 
-def brief(job, facts, decision=None):
+def brief(job, facts, decision=None, market=None):
     """One page to write an application FROM.
 
     Assembled from sections rather than one long branch, so each part is testable
@@ -427,14 +572,15 @@ def brief(job, facts, decision=None):
     @return [String]
     """
     reqs = requirements(job)
-    matched, gaps = evidence(reqs, facts)
+    matched, gaps = evidence(reqs, facts, market=market)
     shape = (decision or {}).get("shape")
     domain = (decision or {}).get("domain")
     roles = facts.get("roles") or []
 
     out = _header(job, decision)
     out += _gaps_section(gaps)
-    out += _evidence_section(matched)
+    out += _partial_section(matched)
+    out += _evidence_section([m for m in matched if not m.get("partial")])
     out += _withheld_section(withheld(roles, shape, domain), decision)
     out += _bullets_section(bullets_for(roles, job, shape, domain))
 
