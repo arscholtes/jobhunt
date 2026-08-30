@@ -141,7 +141,8 @@ def cmd_list(args):
         if r["remote"]:
             loc = "remote" if loc == "—" else f"remote · {loc}"
         flag = f"  [{r['status']}]" if r["status"] else ""
-        print(f"{r['total']:5.1f}  {r['company'][:16]:16}  {r['title'][:46]:46}  {loc[:22]:22}{flag}")
+        print(f"{r['total']:5.1f}  {r['company'][:16]:16}  "
+              f"{r['title'][:46]:46}  {loc[:22]:22}{flag}")
         # Eligibility is shown, never applied: nothing here removes a posting.
         labels = gate.flag_labels(dict(r))
         print(f"       {r['id']}" + (f"   ⚑ {labels}" if labels else ""))
@@ -163,7 +164,8 @@ def cmd_requirements(args):
     corpus = {}
     for r in all_rows:
         corpus.setdefault(r["company"], []).append(r)
-    boiler = {c: (culture.boilerplate(corpus.get(c, [])), culture.boilerplate_suffix(corpus.get(c, [])))
+    boiler = {c: (culture.boilerplate(corpus.get(c, [])),
+                  culture.boilerplate_suffix(corpus.get(c, [])))
               for c in by_company}
 
     print(req_mod.render(req_mod.summarise([dict(r) for r in rows], prof, boilerplate=boiler)))
@@ -207,6 +209,27 @@ def _write_sheet(con, bar):
         return None
 
 
+def _print_picked(picked, targets):
+    """List the day's postings, marking the ones outside the target shapes.
+
+    Marked, never removed. Whether a frontend or ML role is worth his time is his
+    call; the tool's job is only to stop one passing unnoticed.
+    """
+    off = 0
+    for r in picked:
+        shape = gate.decide(r).get("role_shape") or "?"
+        adrift = digest.off_target(shape, targets)
+        off += bool(adrift)
+        note = gate.flag_labels(r)
+        print(f"  {'!' if adrift else '·'} {r['total']:5.1f}  {shape:<9} "
+              f"{r['company']:<12} {r['title'][:44]}" + (f"   ⚑ {note}" if note else ""))
+        if r.get("also_in"):
+            print(f"          also listed in {', '.join(r['also_in'][:3])}")
+    if off:
+        print(f"\n  ! {off} of {len(picked)} are shapes you are not targeting "
+              f"({', '.join(sorted(targets))})")
+
+
 def cmd_digest(args):
     """The daily shortlist, and the one thing a scheduled job calls.
 
@@ -245,22 +268,9 @@ def cmd_digest(args):
                   or digest.DEFAULT_TARGET_SHAPES)
 
     verb = "would send" if args.dry_run else "sending"
-    print(f"{verb} {len(picked)} posting(s)" + (f", {held} held for tomorrow" if held else ""))
-    for r in picked:
-        d = gate.decide(r)
-        shape = d.get("role_shape") or "?"
-        # Marked, never removed. Whether a frontend or ML role is worth his time
-        # is his call; the tool's job is to stop it passing unnoticed.
-        mark = "·" if not digest.off_target(shape, targets) else "!"
-        note = gate.flag_labels(r)
-        print(f"  {mark} {r['total']:5.1f}  {shape:<9} {r['company']:<12} "
-              f"{r['title'][:44]}" + (f"   ⚑ {note}" if note else ""))
-        if r.get("also_in"):
-            print(f"          also listed in {', '.join(r['also_in'][:3])}")
-    off = sum(1 for r in picked if digest.off_target(gate.decide(r).get("role_shape"), targets))
-    if off:
-        print(f"\n  ! {off} of {len(picked)} are shapes you are not targeting "
-              f"({', '.join(sorted(targets))})")
+    held_note = f", {held} held for tomorrow" if held else ""
+    print(f"{verb} {len(picked)} posting(s){held_note}")
+    _print_picked(picked, targets)
 
     if sheet:
         print()
@@ -281,7 +291,6 @@ def cmd_digest(args):
 
 
 def cmd_brief(args):
-    prof = _load_profile(args)
     con = store.connect()
     row = con.execute("SELECT * FROM jobs WHERE id = ?", (args.job_id,)).fetchone()
     if not row:
