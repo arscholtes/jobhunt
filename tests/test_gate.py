@@ -16,7 +16,7 @@ class GenericTitleFallsThroughToBody(unittest.TestCase):
     """
 
     def test_plain_engineer_title_takes_its_shape_from_the_body(self):
-        shape, _, reasons = gate.classify({
+        shape, _, reasons, _ = gate.classify({
             "title": "Senior Software Engineer, Autonomous Freight Systems",
             "description": "You will own backend services and server-side pipelines.",
         })
@@ -24,14 +24,14 @@ class GenericTitleFallsThroughToBody(unittest.TestCase):
         self.assertTrue(any("body term" in r for r in reasons), reasons)
 
     def test_a_specific_title_still_wins_over_the_body(self):
-        shape, _, _ = gate.classify({
+        shape, _, _, _ = gate.classify({
             "title": "Backend Engineer, Payments",
             "description": "Front-end work in React across the whole surface.",
         })
         self.assertEqual(shape, "backend")
 
     def test_generic_survives_when_the_body_says_nothing_either(self):
-        shape, _, _ = gate.classify({
+        shape, _, _, _ = gate.classify({
             "title": "Senior Software Engineer, Growth",
             "description": "You will ship things that matter to customers.",
         })

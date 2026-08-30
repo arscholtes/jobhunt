@@ -192,10 +192,27 @@ def cmd_digest(args):
         print("nothing new above the bar — sending nothing")
         return
 
+    prof = _load_profile(args) if getattr(args, "profile", None) is not None else None
+    targets = set((prof or {}).get("search", {}).get("target_shapes")
+                  or digest.DEFAULT_TARGET_SHAPES)
+
     verb = "would send" if args.dry_run else "sending"
     print(f"{verb} {len(picked)} posting(s)" + (f", {held} held for tomorrow" if held else ""))
     for r in picked:
-        print(f"  {r['total']:5.1f}  {r['company']:<14} {r['title'][:54]}")
+        d = gate.decide(r)
+        shape = d.get("role_shape") or "?"
+        # Marked, never removed. Whether a frontend or ML role is worth his time
+        # is his call; the tool's job is to stop it passing unnoticed.
+        mark = "·" if not digest.off_target(shape, targets) else "!"
+        note = gate.flag_labels(r)
+        print(f"  {mark} {r['total']:5.1f}  {shape:<9} {r['company']:<12} "
+              f"{r['title'][:44]}" + (f"   ⚑ {note}" if note else ""))
+        if r.get("also_in"):
+            print(f"          also listed in {', '.join(r['also_in'][:3])}")
+    off = sum(1 for r in picked if digest.off_target(gate.decide(r).get("role_shape"), targets))
+    if off:
+        print(f"\n  ! {off} of {len(picked)} are shapes you are not targeting "
+              f"({', '.join(sorted(targets))})")
 
     if args.dry_run:
         print("\ndry run — nothing sent, nothing marked notified")
