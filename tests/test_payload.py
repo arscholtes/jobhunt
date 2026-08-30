@@ -130,3 +130,43 @@ class RoleShapeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SummaryLineTests(unittest.TestCase):
+    """The line must name the shapes that earned the marker, not the target set.
+
+    It printed the complement: "7 of 20 are shapes you are not targeting
+    (backend, fde, fullstack, generic, platform)" — every one of which is a
+    target. Read literally it says backend roles are off-target, which is the
+    opposite of true and the kind of line that erodes trust in the whole digest.
+    """
+
+    def test_the_offending_shapes_are_named(self):
+        found = digest.summarise_off_target(
+            ["frontend", "frontend", "data", "backend"], targets={"backend", "fullstack"})
+        self.assertIn("frontend", found["shapes"])
+        self.assertIn("data", found["shapes"])
+
+    def test_a_target_shape_is_never_named_as_offending(self):
+        found = digest.summarise_off_target(
+            ["frontend", "backend"], targets={"backend", "fullstack"})
+        self.assertNotIn("backend", found["shapes"])
+
+    def test_the_count_matches_the_marked_rows(self):
+        found = digest.summarise_off_target(
+            ["frontend", "frontend", "data", "backend"], targets={"backend"})
+        self.assertEqual(found["count"], 3)
+
+    def test_each_offending_shape_appears_once(self):
+        found = digest.summarise_off_target(["frontend"] * 5, targets={"backend"})
+        self.assertEqual(found["shapes"], ["frontend"])
+
+    def test_nothing_off_target_reports_nothing(self):
+        found = digest.summarise_off_target(["backend", "fullstack"],
+                                            targets={"backend", "fullstack"})
+        self.assertEqual(found["count"], 0)
+        self.assertEqual(found["shapes"], [])
+
+    def test_an_unknown_shape_is_not_counted_against_him(self):
+        found = digest.summarise_off_target([None, "backend"], targets={"backend"})
+        self.assertEqual(found["count"], 0)
