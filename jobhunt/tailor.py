@@ -1,5 +1,11 @@
 """Tailoring the material to one posting, and the brief written from it.
 
+A market-frequency model lived here and has been removed rather than left
+dormant. It decided what a requirement asked for from how rare its terms were,
+which inverts on a tech corpus where the common terms are the important ones.
+Dead code with passing tests beside it is worse than either alone, because it
+reads as a supported path.
+
 gate.py picks one of twenty pre-built shape.domain variants. That is variant
 SELECTION, and it answers "which of my twenty resumes is closest". Tailoring
 answers a different question — which of MY bullets speak to THIS posting's
@@ -40,6 +46,10 @@ BULLETS_PER_ROLE = 5
 BULLET_LINE = re.compile(r"^\s*(?:[-•*•]|\d+[.)])\s+(.{3,300})$", re.M)
 # Below this length a shared prefix is coincidence rather than the same word.
 STEM_MIN = 4
+# A morphological variant differs by an ending, not by a whole word.
+MAX_STEM_GAP = 3
+# Below two characters a "name" is an initial or punctuation.
+MIN_NAME_CHARS = 2
 # Measured against the corpus rather than guessed. "What you bring" appears
 # without the apostrophe-ll that the first version demanded, and Anthropic phrases
 # it as "you may be a good fit if".
@@ -314,36 +324,6 @@ MARKET_FLOOR = 0.0005
 # specific ask makes it partial and gets named.
 
 
-def _prose(facts):
-    """@return [Array<set>] term sets from written material only."""
-    out = []
-    for role in facts.get("roles") or []:
-        out += [_terms(b.get("text")) for b in role.get("bullets") or []]
-    out += [_terms(p.get("text")) for p in facts.get("projects") or []]
-    return [t for t in out if t]
-
-
-def _corpus_frequency(facts):
-    """How often a term appears across the resume's PROSE.
-
-    Skill terms are excluded from the denominator deliberately. They are a
-    controlled vocabulary — one word each, listed once — so counting them
-    stretches the denominator and makes ordinary prose words look rare. Whether a
-    word is generic is a property of how he writes, so it is measured on his
-    writing.
-
-    @return [Hash] term -> share of prose entries containing it
-    """
-    entries = _prose(facts)
-    if not entries:
-        return {}
-    counts = {}
-    for terms in entries:
-        for t in terms:
-            counts[t] = counts.get(t, 0) + 1
-    return {t: n / len(entries) for t, n in counts.items()}
-
-
 # Proper nouns that are not technologies. Capitalisation alone would read these
 # as named tools.
 NOT_TECH = {
@@ -390,7 +370,7 @@ YEARS = re.compile(r"(\d{1,2})\s*\+?\s*(?:-\s*\d{1,2}\s*)?years?\b", re.I)
 _MIDSENTENCE = None
 
 
-def checkable(requirement, names=None):
+def checkable(requirement):
     """What in this requirement can actually be checked.
 
     A technology or proper noun, a quantity of years, a credential — those are
@@ -411,7 +391,7 @@ def checkable(requirement, names=None):
     for m in PROPER_NOUN.finditer(text):
         word = m.group(1)
         low = word.lower()
-        if low in openers or low in NOT_TECH or low in STOP or len(low) < 2:
+        if low in openers or low in NOT_TECH or low in STOP or len(low) < MIN_NAME_CHARS:
             continue
         tech.add(low)
     for m in ACRONYM.finditer(text):
@@ -427,51 +407,6 @@ def is_actionable(requirement):
     """@return [Boolean] whether this ask names anything that can be checked."""
     found = checkable(requirement)
     return bool(found["tech"]) or found["years"] is not None
-
-
-def market_frequency(descriptions):
-    """How often each term appears across the postings on disk.
-
-    @param descriptions [Iterable<String>] posting bodies
-    @return [Hash] term -> share of postings containing it
-    """
-    total = 0
-    counts = {}
-    for text in descriptions:
-        terms = _terms(text)
-        if not terms:
-            continue
-        total += 1
-        for t in terms:
-            counts[t] = counts.get(t, 0) + 1
-    return {t: n / total for t, n in counts.items()} if total else {}
-
-
-def is_ask(term, market):
-    """Whether a term is a real requirement or the genre's boilerplate.
-
-    Measured against the market rather than against his resume, because rarity in
-    his own writing only says which words he happens not to use — which turned
-    "professional" and "full-time" into unmet requirements.
-
-    @return [Boolean]
-    """
-    share = market.get(term.lower())
-    if share is None:
-        return False
-    return MARKET_FLOOR <= share <= MARKET_ASK_SHARE
-
-
-def is_specific(term, facts):
-    """Whether matching this term is evidence of anything.
-
-    A word spread across most of the resume is not a skill claim, it is the
-    author's vocabulary. A word that appears once — or not at all — carries the
-    weight of the requirement.
-
-    @return [Boolean]
-    """
-    return _corpus_frequency(facts).get(term.lower(), 0.0) <= GENERIC_SHARE
 
 
 def _matches(want, have):
@@ -502,7 +437,7 @@ def _same_word(a, b):
         return True
     if min(len(a), len(b)) < STEM_MIN:
         return False
-    return (a.startswith(b) or b.startswith(a)) and abs(len(a) - len(b)) <= 3
+    return (a.startswith(b) or b.startswith(a)) and abs(len(a) - len(b)) <= MAX_STEM_GAP
 
 
 def years_from(facts, today=None):
@@ -542,7 +477,7 @@ def years_from(facts, today=None):
     return round(sum(b - a for a, b in merged) / 12, 1)
 
 
-def evidence(reqs, facts, market=None, years_of_experience=None):
+def evidence(reqs, facts, years_of_experience=None):
     """Match each stated requirement, and be honest about how well.
 
     ONLY CHECKABLE ASKS COUNT. An earlier version decided what a requirement asked
@@ -556,7 +491,6 @@ def evidence(reqs, facts, market=None, years_of_experience=None):
     resume. A disposition cannot, and is neither a gap nor a partial — reporting
     "strong communication" as unmet gives him nothing to act on.
 
-    @param market [Hash, nil] retained for callers; no longer decides what an ask is
     @param years_of_experience [Float, nil] defaults to the dated roles in facts
     @return [Array(Array<Hash>, Array<String>)] (matched, gaps)
     """
@@ -631,7 +565,7 @@ def _header(job, decision):
     return out
 
 
-def _partial_section(matched):
+def _partial_section():
     """Deliberately prints nothing, and the reason is worth keeping.
 
     A third state between covered and gap is real — he has the Rails, not the
@@ -693,7 +627,7 @@ def _bullets_section(bullets):
     return out
 
 
-def brief(job, facts, decision=None, market=None):
+def brief(job, facts, decision=None):
     """One page to write an application FROM.
 
     Assembled from sections rather than one long branch, so each part is testable
@@ -707,14 +641,14 @@ def brief(job, facts, decision=None, market=None):
     @return [String]
     """
     reqs = requirements(job)
-    matched, gaps = evidence(reqs, facts, market=market)
+    matched, gaps = evidence(reqs, facts)
     shape = (decision or {}).get("shape")
     domain = (decision or {}).get("domain")
     roles = facts.get("roles") or []
 
     out = _header(job, decision)
     out += _gaps_section(gaps)
-    out += _partial_section(matched)
+    out += _partial_section()
     out += _evidence_section([m for m in matched if not m.get("partial")])
     out += _withheld_section(withheld(roles, shape, domain), decision)
     out += _bullets_section(bullets_for(roles, job, shape, domain))
