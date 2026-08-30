@@ -7,6 +7,7 @@
     jobhunt show <job-id>         one posting in full
     jobhunt gate <job-id>         which resume variant it gets, and why
     jobhunt resume <job-id>       render that variant
+    jobhunt brief <job-id>        what to match, what you don't, and where to apply
     jobhunt status <job-id> <s>   interested | drafted | sent | rejected | closed
 
 Nothing in this tool contacts an employer. Drafting and sending are separate,
@@ -18,7 +19,7 @@ import pathlib
 import sys
 import textwrap
 
-from . import culture, gate, resume, store
+from . import culture, gate, resume, store, tailor
 from . import profile as profile_mod
 from . import requirements as req_mod
 from . import score as score_mod
@@ -167,6 +168,20 @@ def cmd_requirements(args):
     print(req_mod.render(req_mod.summarise([dict(r) for r in rows], prof, boilerplate=boiler)))
 
 
+def cmd_brief(args):
+    prof = _load_profile(args)
+    con = store.connect()
+    row = con.execute("SELECT * FROM jobs WHERE id = ?", (args.job_id,)).fetchone()
+    if not row:
+        sys.exit(f"no posting with id {args.job_id}")
+    job = dict(row)
+    try:
+        facts = resume.load(getattr(args, "resume", None))
+    except resume.ResumeError as e:
+        sys.exit(str(e))
+    print(tailor.brief(job, facts, gate.decide(job)))
+
+
 def cmd_show(args):
     con = store.connect()
     r = con.execute(
@@ -249,6 +264,10 @@ def main(argv=None):
     p = sub.add_parser("requirements", help="what the top postings actually ask for")
     p.add_argument("-n", type=int, default=30, help="how many of the top postings to read")
     p.set_defaults(fn=cmd_requirements)
+
+    p = sub.add_parser("brief", help="a page to write an application from")
+    p.add_argument("job_id")
+    p.set_defaults(fn=cmd_brief)
 
     p = sub.add_parser("show", help="one posting in full")
     p.add_argument("job_id")
