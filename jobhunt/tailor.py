@@ -211,19 +211,41 @@ def bullets_for(roles, job, shape=None, domain=None, budget=BULLET_BUDGET):
         scored.append((weight, n, role, chosen))
 
     scored.sort(key=lambda t: -t[0])
-    out, spent = [], 0
-    for weight, n, role, chosen in scored:
-        if spent >= budget:
+
+    # EVERY EMPLOYER APPEARS. A resume may reorder or trim the bullets within a
+    # job; it must never remove the job. Dropping one misstates work history on
+    # an application form and manufactures an employment gap that did not happen,
+    # which is a correctness failure and not a layout one.
+    #
+    # So presence is guaranteed before any budget is spent, and the budget only
+    # decides how much each role gets to say. Page length was never the
+    # constraint — the packets carrying every employer render at the same two
+    # pages as the ones missing one.
+    out = [(n, role.get("company", "?"), role.get("title", "?"), [])
+           for _, n, role, _ in scored]
+    room_for = {n: 0 for _, n, _, _ in scored}
+
+    # Scarce bullets go to the roles he would rather show, expressed in
+    # resume.toml as role_priority rather than a company name written into this
+    # module. Relevance to the posting breaks ties beneath that.
+    order = sorted(scored,
+                   key=lambda t: (-t[2].get("role_priority", 0), -t[0]))
+    spent = 0
+    while spent < budget:
+        gave = False
+        for _weight, n, _role, chosen in order:
+            if spent >= budget:
+                break
+            if room_for[n] >= min(len(chosen), BULLETS_PER_ROLE):
+                continue
+            room_for[n] += 1
+            spent += 1
+            gave = True
+        if not gave:
             break
-        # A role with nothing this posting mentions is padding, unless nothing
-        # matched at all — in which case the best material is better than none.
-        if weight == 0 and out:
-            continue
-        room = min(len(chosen), budget - spent, BULLETS_PER_ROLE)
-        keep = _top(chosen, job, room)
-        if keep:
-            out.append((n, role.get("company", "?"), role.get("title", "?"), keep))
-            spent += len(keep)
+
+    eligible = {n: chosen for _, n, _, chosen in scored}
+    out = [(n, c, t, _top(eligible[n], job, room_for[n])) for n, c, t, _ in out]
 
     out.sort(key=lambda t: t[0])
     return [(c, t, b) for _, c, t, b in out]

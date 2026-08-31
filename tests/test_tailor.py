@@ -225,9 +225,16 @@ class BudgetTests(unittest.TestCase):
         picked = tailor.bullets_for(self.roles(), posting("Rails Postgres Hotwire"), budget=2)
         self.assertEqual(picked[0][0], "A")
 
-    def test_a_role_with_nothing_relevant_is_dropped_rather_than_padded(self):
+    def test_a_role_with_nothing_relevant_is_kept_with_fewer_bullets(self):
+        """Superseded by a correctness decision, and the old assertion is the bug.
+
+        This used to assert that an irrelevant role was DROPPED. Dropping it
+        removes an employer from the work history, which on an application form
+        misstates it and manufactures a gap. A role may be trimmed to nothing;
+        it may not disappear.
+        """
         picked = tailor.bullets_for(self.roles(), posting("Rails Postgres Hotwire"), budget=2)
-        self.assertNotIn("B", [c for c, _, _ in picked])
+        self.assertIn("B", [c for c, _, _ in picked])
 
     def test_a_long_irrelevant_role_does_not_outrank_a_short_relevant_one(self):
         """Summing relevance rewards verbosity, not fit.
@@ -253,7 +260,9 @@ class BudgetTests(unittest.TestCase):
         self.assertEqual([c for c, _, _ in picked], ["A", "B"])
 
     def test_bullets_within_a_role_stay_in_authoring_order(self):
-        picked = tailor.bullets_for(self.roles(), posting("Hotwire Rails"), budget=2)
+        # Budget is shared across roles now, so a wider one is needed before a
+        # single role holds two bullets.
+        picked = tailor.bullets_for(self.roles(), posting("Hotwire Rails"), budget=6)
         self.assertEqual([b["text"] for b in picked[0][2]],
                          ["Rails and Postgres at scale", "Hotwire and Turbo frames"])
 
