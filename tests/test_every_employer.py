@@ -140,3 +140,51 @@ class PageBudgetTests(unittest.TestCase):
             text = md.read_text()
             for company in companies:
                 self.assertIn(company, text, f"{md.stem} omits {company}")
+
+
+class DemandwellBulletsTests(unittest.TestCase):
+    """Presence was the floor. Demandwell is meant to carry real bullets.
+
+    A second cause, separate from the budget: both Demandwell bullets were tagged
+    backend/fde/generic only, so _eligible() filtered every one of them out on a
+    fullstack- or platform-shaped variant and the role yielded nothing. Peerview
+    carried fullstack tags and always survived, which is why Demandwell was
+    missing from exactly the four full-stack postings.
+
+    Fixing the budget alone left Demandwell exposed to the tag filter; fixing the
+    tags alone would leave other roles exposed to the budget.
+    """
+
+    def test_demandwell_carries_at_least_one_bullet_in_every_variant(self):
+        facts = resume.load()
+        for shape in ("backend", "fullstack", "platform", "fde", "generic"):
+            for domain in ("ai", "devtools", "rails", "general"):
+                doc = resume.build(facts, shape, domain)
+                role = next(r for r in doc["roles"] if r["company"] == "Demandwell")
+                self.assertTrue(role["bullets"],
+                                f"{shape}.{domain} leaves Demandwell with no bullets")
+
+    def test_the_role_order_is_data_not_code(self):
+        facts = resume.load()
+        by_company = {r["company"]: r.get("role_priority") for r in facts["roles"]}
+        self.assertGreater(by_company["Liftify"], by_company["Demandwell"])
+        self.assertGreater(by_company["Demandwell"], by_company["Peerview Data"])
+
+    def test_scarce_bullets_reach_demandwell_before_peerview(self):
+        facts = resume.load()
+        job = {"id": "x", "title": "Senior Full Stack Engineer", "company": "c",
+               "url": "u", "location": "Remote", "remote": 1,
+               "description": "Rails and React."}
+        placed = tailor.bullets_for(facts["roles"], job, shape="fullstack",
+                                    domain="general", budget=8)
+        counts = {c: len(b) for c, _, b in placed}
+        self.assertGreaterEqual(counts.get("Demandwell", 0), 1)
+
+    def test_peerview_presence_alone_is_acceptable(self):
+        # "just note I was at peerview" — a heading with no bullets is a pass.
+        facts = resume.load()
+        job = {"id": "x", "title": "Senior Full Stack Engineer", "company": "c",
+               "url": "u", "location": "Remote", "remote": 1, "description": "Rails."}
+        placed = tailor.bullets_for(facts["roles"], job, shape="fullstack",
+                                    domain="general", budget=8)
+        self.assertIn("Peerview Data", [c for c, _, _ in placed])
