@@ -53,9 +53,14 @@ DOMAINS = [
     ("rails", r"ruby on rails|\brails\b|\bruby\b"),
 ]
 
+# A bracketed country is a TITLE-tag convention ("Senior Engineer [Canada]").
+# Matched against the body it hits any bracketed country word in prose — a vanta
+# posting listing offices "...and Sydney [Canada] What you can expect..." was
+# flagged region-locked while its location said Remote U.S.
+REGION_LOCK_TAG = r"\[(canada|uk|emea|apac|latam|india|germany|france|brazil|poland|australia)\]"
+
 REGION_LOCK = (
-    r"\[(canada|uk|emea|apac|latam|india|germany|france|brazil|poland|australia)\]"
-    r"|\b(emea|apac|latam|canada|uk|eu)[- ]only\b"
+    r"\b(emea|apac|latam|canada|uk|eu)[- ]only\b"
     r"|must (be|reside) (located )?in (canada|the uk|emea|europe|australia)"
     r"|eligible to work in (canada|the uk|australia|the eu)"
 )
@@ -166,9 +171,10 @@ def flags(job):
     """
     body = _hay(job.get("title") + " " + (job.get("description") or ""))
     out = []
-    for name, pattern in (("region_locked", REGION_LOCK),
-                          ("level_above", LEVEL_ABOVE),
-                          ("degree_hard", DEGREE_HARD)):
+    m = re.search(REGION_LOCK, body) or re.search(REGION_LOCK_TAG, _hay(job.get("title")))
+    if m:
+        out.append(("region_locked", m.group(0).strip()))
+    for name, pattern in (("level_above", LEVEL_ABOVE), ("degree_hard", DEGREE_HARD)):
         m = re.search(pattern, body)
         if m:
             out.append((name, m.group(0).strip()))
