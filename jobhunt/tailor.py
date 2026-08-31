@@ -233,10 +233,12 @@ def bullets_for(roles, job, shape=None, domain=None, budget=BULLET_BUDGET):
     spent = 0
     while spent < budget:
         gave = False
-        for _weight, n, _role, chosen in order:
+        for _weight, n, role, chosen in order:
             if spent >= budget:
                 break
-            if room_for[n] >= min(len(chosen), BULLETS_PER_ROLE):
+            # A role may cap itself below the global limit; the founder roles do.
+            cap = min(BULLETS_PER_ROLE, role.get("max_bullets", BULLETS_PER_ROLE))
+            if room_for[n] >= min(len(chosen), cap):
                 continue
             room_for[n] += 1
             spent += 1
