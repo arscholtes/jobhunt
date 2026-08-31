@@ -126,6 +126,27 @@ def skills(facts, shape, domain):
     return [g for _, g in groups]
 
 
+def _projects(facts, shape, domain, limit=3):
+    """Projects for this variant, never an empty section.
+
+    Every rails-domain variant filtered out both projects and the whole section
+    disappeared — betterment is fullstack.rails and its packet carried no projects
+    at all. Same principle as the roles: a section may reorder or trim, it must
+    not vanish.
+
+    The fallback is the highest-weighted project, so an over-narrow tag degrades
+    to showing the best work rather than to showing none. A resume with no
+    projects at all still renders no section: the guard fills an emptied section,
+    it does not invent one.
+
+    @return [list]
+    """
+    chosen = _select(facts["projects"], shape, domain, limit)
+    if chosen or not facts["projects"]:
+        return chosen
+    return [max(facts["projects"], key=lambda p: p.get("weight", 0))]
+
+
 def build(facts, shape, domain):
     """Assemble one variant as structured content, ready to render."""
     roles = []
@@ -151,7 +172,7 @@ def build(facts, shape, domain):
         "summary": summary(facts, shape, domain),
         "skills": skills(facts, shape, domain),
         "roles": roles,
-        "projects": _select(facts["projects"], shape, domain, 3),
+        "projects": _projects(facts, shape, domain),
         "education": facts.get("education", {}),
     }
 
