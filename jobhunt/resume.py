@@ -130,7 +130,17 @@ def build(facts, shape, domain):
     """Assemble one variant as structured content, ready to render."""
     roles = []
     for role in facts["roles"]:
-        bullets = _select(role.get("bullets", []), shape, domain, BULLETS_PER_ROLE)
+        # A role may cap itself lower than the global limit. The founder roles do,
+        # because every one of their bullets is tagged for any shape and any
+        # domain and so is never filtered — while the engineering bullets are
+        # narrowly tagged and mostly are. Without a cap the tagging discipline
+        # that keeps the engineering section targeted is exactly what lets the
+        # founder section outweigh it on an engineering resume.
+        #
+        # A cap, not a cut: the role keeps its strongest material and relevance
+        # still decides which bullets survive.
+        limit = min(BULLETS_PER_ROLE, role.get("max_bullets", BULLETS_PER_ROLE))
+        bullets = _select(role.get("bullets", []), shape, domain, limit)
         # A role whose every bullet is tagged out of this variant still renders
         # its heading and dates. Presence is the requirement; bullets are
         # optional. Skipping it removed an employer from the work history.
