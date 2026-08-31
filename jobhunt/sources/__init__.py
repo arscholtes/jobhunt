@@ -14,5 +14,5 @@ def fetch(source, token):
     try:
         adapter = ADAPTERS[source]
     except KeyError:
-        raise ValueError(f"unknown source {source!r}; expected one of {', '.join(ADAPTERS)}")
+        raise ValueError(f"unknown source {source!r}; expected one of {', '.join(ADAPTERS)}") from None
     return adapter.fetch(token)

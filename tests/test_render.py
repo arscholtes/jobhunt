@@ -9,7 +9,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-from jobhunt import resume  # noqa: E402
+from jobhunt import resume
 
 SHAPES = ["backend", "platform", "fullstack", "fde", "generic"]
 DOMAINS = ["ai", "devtools", "rails", "general"]

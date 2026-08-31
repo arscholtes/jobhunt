@@ -10,7 +10,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-from jobhunt import export  # noqa: E402
+from jobhunt import export
 
 ROWS = [
     {"id": "greenhouse:acme:1", "company": "acme", "title": "Senior Engineer",

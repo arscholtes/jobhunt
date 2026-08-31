@@ -20,6 +20,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from typing import ClassVar
+
 from jobhunt import tailor
 
 
@@ -163,7 +165,7 @@ class HtmlRequirementTests(unittest.TestCase):
 class GapTests(unittest.TestCase):
     """The section that decides whether to apply at all."""
 
-    FACTS = {  # noqa: RUF012 — a fixture, read only
+    FACTS: ClassVar = {
         "skill_groups": [{"name": "Backend", "terms": ["ruby", "rails", "postgres"]}],
         "roles": [{"company": "x", "title": "Eng", "bullets": [
             {"text": "Scaled Rails and Postgres for a multi-tenant platform", "weight": 9}]}],

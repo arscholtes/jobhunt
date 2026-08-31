@@ -104,7 +104,9 @@ class AppliedDigestTests(unittest.TestCase):
         self.con.commit()
 
     def test_each_status_is_counted(self):
-        self.add("a", "interested"); self.add("b", "drafted"); self.add("c", "drafted")
+        self.add("a", "interested")
+        self.add("b", "drafted")
+        self.add("c", "drafted")
         counts = digest.applied_summary(self.con)["counts"]
         self.assertEqual(counts["drafted"], 2)
         self.assertEqual(counts["interested"], 1)

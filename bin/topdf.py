@@ -19,6 +19,8 @@ import pathlib
 import subprocess
 import sys
 
+MIN_ARGS = 2  # script plus the markdown file
+
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 
 CSS = """
@@ -38,6 +40,29 @@ ul { margin: 0 0 5pt; padding-left: 13pt; }
 li { margin: 0 0 2.5pt; page-break-inside: avoid; }
 .role { page-break-inside: avoid; }
 """
+
+
+def _heading(marker, esc):
+    """The fragments a heading emits, and whether it opened a role block.
+
+    A role heading opens a wrapper the next heading has to close, so the caller
+    needs that state back rather than inferring it from the markup.
+    """
+    tag = f"h{len(marker) - 1}"
+    head = f"<{tag}>{esc[len(marker):]}</{tag}>"
+    if marker == "### ":
+        return ['<div class="role">', head], True
+    return [head], False
+
+
+def _para_class(lines, n):
+    """The line under a heading is the contact block, or a role's dates."""
+    prev = lines[n - 1].strip() if n else ""
+    if prev.startswith("# "):
+        return "contact"
+    if prev.startswith("### "):
+        return "dates"
+    return ""
 
 
 def to_html(md, title):
@@ -61,17 +86,12 @@ def to_html(md, title):
         if not line:
             continue
         esc = html.escape(line)
-        if line.startswith("# "):
-            close_list(); close_role()
-            out.append(f"<h1>{esc[2:]}</h1>")
-        elif line.startswith("## "):
-            close_list(); close_role()
-            out.append(f"<h2>{esc[3:]}</h2>")
-        elif line.startswith("### "):
-            close_list(); close_role()
-            out.append('<div class="role">')
-            in_role = True
-            out.append(f"<h3>{esc[4:]}</h3>")
+        marker = next((m for m in ("### ", "## ", "# ") if line.startswith(m)), None)
+        if marker:
+            close_list()
+            close_role()
+            frags, in_role = _heading(marker, esc)
+            out.extend(frags)
         elif line.startswith("- "):
             if not in_list:
                 out.append("<ul>")
@@ -80,22 +100,22 @@ def to_html(md, title):
         else:
             close_list()
             # The line under a heading is the contact block or a role's dates.
-            prev = lines[n - 1].strip() if n else ""
-            cls = "contact" if prev.startswith("# ") else "dates" if prev.startswith("### ") else ""
+            cls = _para_class(lines, n)
             out.append(f'<p class="{cls}">{esc}</p>' if cls else f"<p>{esc}</p>")
-    close_list(); close_role()
+    close_list()
+    close_role()
     return (f"<!doctype html><html><head><meta charset='utf-8'>"
             f"<title>{html.escape(title)}</title><style>{CSS}</style></head>"
             f"<body>{''.join(out)}</body></html>")
 
 
 def main():
-    if len(sys.argv) < 2:
+    if len(sys.argv) < MIN_ARGS:
         sys.exit(__doc__)
     src = pathlib.Path(sys.argv[1])
     if not pathlib.Path(CHROME).exists():
         sys.exit(f"error: Chrome not found at {CHROME}; it is the renderer")
-    out_pdf = pathlib.Path(sys.argv[2]) if len(sys.argv) > 2 else src.with_suffix(".pdf")
+    out_pdf = pathlib.Path(sys.argv[2]) if len(sys.argv) > MIN_ARGS else src.with_suffix(".pdf")
     tmp = src.with_suffix(".render.html")
     tmp.write_text(to_html(src.read_text(), src.stem))
     subprocess.run([CHROME, "--headless", "--disable-gpu", "--no-pdf-header-footer",

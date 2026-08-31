@@ -7,6 +7,8 @@ nothing at all — worse than being absent.
 """
 from ._http import get_json
 
+PAGE_SIZE = 100  # the board's own page size; a short page is the last one
+
 LIST = "https://api.smartrecruiters.com/v1/companies/{token}/postings?limit=100&offset={offset}"
 DETAIL = "https://api.smartrecruiters.com/v1/companies/{token}/postings/{pid}"
 
@@ -50,6 +52,6 @@ def fetch(token, max_postings=200):
                 "posted_at": j.get("releasedDate"),
             })
         offset += len(batch)
-        if len(batch) < 100:
+        if len(batch) < PAGE_SIZE:
             break
     return rows

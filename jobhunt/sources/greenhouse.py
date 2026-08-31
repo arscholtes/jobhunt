@@ -1,4 +1,5 @@
 """Greenhouse public job board API."""
+import html as htmlmod
 import re
 
 from ._http import get_json
@@ -10,7 +11,6 @@ TAG = re.compile(r"<[^>]+>")
 def _text(html):
     if not html:
         return ""
-    import html as htmlmod
     return htmlmod.unescape(TAG.sub(" ", html)).replace("\xa0", " ")
 
 

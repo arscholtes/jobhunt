@@ -23,6 +23,8 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 from jobhunt import store
 
+MIN_TOKEN = 3  # shorter forms match too much to be worth redacting
+
 # Bands to sample from, and how many of each. Deliberately includes disqualified
 # postings: an exclusion rule that is too aggressive is invisible in a shortlist.
 BANDS = [
@@ -40,7 +42,7 @@ def _aliases(company):
     """Surface forms of a company slug likely to appear in its own prose."""
     base = company.strip()
     forms = {base, base.replace("-", " "), base.replace("-", ""), base.replace(".", "")}
-    return sorted({f for f in forms if len(f) >= 3}, key=len, reverse=True)
+    return sorted({f for f in forms if len(f) >= MIN_TOKEN}, key=len, reverse=True)
 
 
 def scrub(text, company, codename):
@@ -111,7 +113,7 @@ def main():
     )
     (outdir / "key.json").write_text(json.dumps(key, indent=2))
 
-    leaks = [k["card"] for k, c in zip(key, cards) if re.search(
+    leaks = [k["card"] for k, c in zip(key, cards, strict=True) if re.search(
         re.escape(k["company"]), c, re.I)]
     print(f"wrote {outdir/'cards.md'} ({len(cards)} cards, {len(codes)} companies)")
     print(f"wrote {outdir/'key.json'}  — do not open before rating")

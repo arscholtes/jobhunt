@@ -10,7 +10,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-from jobhunt import signals  # noqa: E402
+from jobhunt import signals
 
 
 class FrictionFallsBackToTheSource(unittest.TestCase):

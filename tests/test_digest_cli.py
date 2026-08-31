@@ -5,20 +5,20 @@ launchd to run. The command is the deliverable; the dry run is what makes it
 safe to arm.
 """
 
+import contextlib
 import io
 import sqlite3
 import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
-from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from jobhunt import cli, export, store  # noqa: E402
+from jobhunt import cli, export, store
 
 
 class DigestCommandTests(unittest.TestCase):
@@ -110,11 +110,8 @@ class SendOrderingTests(unittest.TestCase):
              mock.patch.object(store, "connect", return_value=con), \
              mock.patch.object(export, "DEFAULT_PATH", Path(tmp) / "shortlist.csv"), \
              mock.patch("jobhunt.notify.send", side_effect=OSError("refused")), \
-             redirect_stdout(io.StringIO()):
-            try:
-                cli.cmd_digest(args)
-            except SystemExit:
-                pass
+             redirect_stdout(io.StringIO()), contextlib.suppress(SystemExit):
+            cli.cmd_digest(args)
         self.assertEqual(con.execute("SELECT count(*) FROM notified").fetchone()[0], 0)
         con.close()
 

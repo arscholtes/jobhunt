@@ -16,7 +16,8 @@ import urllib.parse
 INTERVIEW = [
     ("take_home", r"take[- ]home|async (?:exercise|assignment)|project we send|work sample"),
     ("pairing", r"pair(?:ing)? (?:session|program|exercise)|pair with (?:an? )?engineer|collaborative coding"),
-    ("live_coding", r"live[- ]cod|whiteboard|technical screen|coding (?:challenge|interview|screen)|hackerrank|codesignal|karat"),
+    ("live_coding", r"live[- ]cod|whiteboard|technical screen|coding (?:challenge|interview|screen)"
+     r"|hackerrank|codesignal|karat"),
     ("system_design", r"system design|architecture (?:interview|discussion)|design interview"),
     ("no_leetcode", r"no (?:leetcode|whiteboard|trick questions|algorithm puzzles)|we do ?n[o']t (?:do )?leetcode"),
 ]
@@ -24,15 +25,17 @@ INTERVIEW = [
 # Whether they say anything about AI tooling. Silence is not neutral — it usually
 # means the question gets decided in the room by whoever interviews you.
 AI_STANCE = [
-    ("encouraged", r"\b(?:copilot|cursor|claude code|claude|chatgpt|llm tooling|ai[- ]assisted|ai tools?)\b[^.]{0,80}\b(?:encourag|expect|provide|licen[cs]e|welcome|embrace|use)"),
-    ("prohibited", r"(?:no|not permitted|prohibited|without)\s+(?:use of\s+)?(?:ai|copilot|chatgpt|llm)[^.]{0,40}(?:during|in the|for the)\s+interview|ai[- ]free interview"),
+    ("encouraged", r"\b(?:copilot|cursor|claude code|claude|chatgpt|llm tooling|ai[- ]assisted|ai tools?)\b"
+     r"[^.]{0,80}\b(?:encourag|expect|provide|licen[cs]e|welcome|embrace|use)"),
+    ("prohibited", r"(?:no|not permitted|prohibited|without)\s+(?:use of\s+)?(?:ai|copilot|chatgpt|llm)"
+     r"[^.]{0,40}(?:during|in the|for the)\s+interview|ai[- ]free interview"),
     ("mentioned", r"\b(?:copilot|cursor|claude|chatgpt|llm|generative ai|ai[- ]assisted)\b"),
 ]
 
 # Published compensation. Several US states mandate it, so its absence in those
 # markets is itself weak signal.
 COMP = re.compile(
-    r"\$\s?(\d{2,3})(?:,\d{3}|k)\s*(?:-|–|to)\s*\$?\s?(\d{2,3})(?:,\d{3}|k)", re.I
+    r"\$\s?(\d{2,3})(?:,\d{3}|k)\s*(?:-|\u2013|to)\s*\$?\s?(\d{2,3})(?:,\d{3}|k)", re.I
 )
 
 # Application friction, inferred from where the apply link lands. A two-field

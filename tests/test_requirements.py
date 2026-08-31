@@ -28,7 +28,7 @@ class DemandTests(unittest.TestCase):
     def test_a_skill_every_posting_asks_for_is_counted_for_all_of_them(self):
         rows = [posting("we use ruby")] * 3
         out = req.summarise(rows, profile())
-        self.assertEqual(dict(((d["term"], d["count"]) for d in out["demanded"]))["ruby"], 3)
+        self.assertEqual({d["term"]: d["count"] for d in out["demanded"]}["ruby"], 3)
 
     def test_demand_is_ordered_most_asked_first(self):
         rows = [posting("ruby and rails"), posting("ruby"), posting("ruby")]

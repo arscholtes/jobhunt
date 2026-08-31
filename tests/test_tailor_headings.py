@@ -11,7 +11,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-from jobhunt import tailor  # noqa: E402
+from jobhunt import tailor
 
 BOLD_PARAGRAPH = (
     "<p>About the role</p> <ul> <li>Own the release pipeline</li> </ul> "

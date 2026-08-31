@@ -10,6 +10,8 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 from jobhunt import cadence, culture, store
 from jobhunt import profile as profile_mod
 
+MIN_POSTINGS = 3  # fewer than this and the corpus cannot speak to a company
+
 
 def main():
     prof = profile_mod.load()
@@ -20,7 +22,7 @@ def main():
     results = []
     for comp in companies:
         rows = con.execute("SELECT * FROM jobs WHERE company = ?", (comp,)).fetchall()
-        if len(rows) < 3:
+        if len(rows) < MIN_POSTINGS:
             continue
         # Cadence is the one term the corpus cannot answer, so it is fetched —
         # cached for a week, and left unknown rather than zeroed when nothing replies.

@@ -15,6 +15,8 @@ get answered side by side.
 """
 import re
 
+MIN_POSTINGS = 3  # one posting is a sales document; a few are evidence
+
 # Engineering-ish titles, used to size the org and to avoid judging a company's
 # culture by its sales postings.
 ENG = re.compile(r"engineer|developer|architect|sre|devops|programmer", re.I)
@@ -57,7 +59,7 @@ def boilerplate(rows, floor=200):
 def _descriptions(rows):
     """@return [Array<String>] descriptions, or [] when there are too few to judge."""
     descs = [r["description"] or "" for r in rows if r["description"]]
-    return descs if len(descs) >= 3 else []
+    return descs if len(descs) >= MIN_POSTINGS else []
 
 
 def boilerplate_suffix(rows, floor=200):

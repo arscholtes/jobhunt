@@ -20,6 +20,7 @@ from __future__ import annotations
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 
 from .sources._http import UA, FetchError, get_json
 
@@ -133,7 +134,6 @@ def feed_cadence(url, fetch_text=_fetch_text):
 def _parse_rfc822(value):
     if not value:
         return None
-    from email.utils import parsedate_to_datetime
     try:
         dt = parsedate_to_datetime(value)
     except (TypeError, ValueError):
