@@ -56,25 +56,75 @@ COUNTRIES = {
     "philippines", "vietnam", "thailand", "malaysia", "indonesia",
     "united arab emirates", "uae", "emea", "apac", "latam",
 }
-SPLIT = re.compile(r"[;|]|\bor\b", re.I)
+SPLIT = re.compile(r"[;|]", re.I)
+# Remote is a work ARRANGEMENT, not a place. Matching the field as one string let
+# the word defeat the place beside it in both directions — "Argentina Remote"
+# stopped being international and "Remote U.S." stopped being domestic. Neither
+# was misfiled; both stopped being classified at all, which is worse, because
+# unknown is treated as domestic and carries no flag.
+ARRANGEMENTS = (
+    ("remote", re.compile(r"\b(remote|wfh|work from home|distributed)\b", re.I)),
+    ("hybrid", re.compile(r"\bhybrid\b", re.I)),
+    ("onsite", re.compile(r"\b(on-?site|in-?office|in person)\b", re.I)),
+)
+ARRANGEMENT_WORDS = re.compile(
+    r"\b(remote|wfh|work from home|distributed|hybrid|on-?site|in-?office|"
+    r"in person|only|friendly|first|eligible|based)\b", re.I)
+# Periods go too: "U.S." must normalise to "us", or the trailing boundary
+# never matches and the most common domestic phrasing reads as unknown.
+PUNCT = re.compile(r"[^a-z0-9 ]+")
+# Countries written as several words, checked before single tokens so "united
+# kingdom" is not read as two unknowns.
+MULTIWORD = tuple(sorted((c for c in COUNTRIES if " " in c), key=len, reverse=True))
+MULTIWORD_STATES = tuple(sorted((c for c in US_STATES if " " in c), key=len, reverse=True))
 
 
-def _parts(chunk):
-    return [p.strip().lower().strip(".") for p in chunk.split(",") if p.strip()]
+def arrangement(text):
+    """How the job is worked, independent of where it is.
+
+    @return [String, nil] remote | hybrid | onsite
+    """
+    for name, pattern in ARRANGEMENTS:
+        if pattern.search(text or ""):
+            return name
+    return None
+
+
+def _words(chunk):
+    """@return [String] lowercased, depunctuated, arrangement words removed."""
+    plain = ARRANGEMENT_WORDS.sub(" ", chunk or "").lower()
+    # Periods are DELETED rather than spaced: "u.s." must become "us", and
+    # replacing them with spaces yields "u s", which matches nothing.
+    plain = plain.replace(".", "")
+    plain = PUNCT.sub(" ", plain)
+    return " ".join(plain.split())
+
+
+def _has(text, terms):
+    return any(re.search(rf"\b{re.escape(t)}\b", text) for t in terms)
 
 
 def _classify_one(chunk):
-    parts = _parts(chunk)
-    if not parts:
+    """Classify one location alternative, place only.
+
+    A US signal wins over a foreign one within a single alternative — "Remote (US
+    or Canada)" is reachable, because he can take the US side.
+    """
+    text = _words(chunk)
+    if not text:
         return "unknown"
-    if any(p in US_NAMES for p in parts):
+
+    if _has(text, US_NAMES) or _has(text, MULTIWORD_STATES):
         return "domestic"
-    for p in parts:
-        if p in COUNTRIES:
-            return "international"
-    for p in parts:
-        if p in US_STATES or p in US_ABBR:
-            return "domestic"
+
+    foreign = _has(text, MULTIWORD) or _has(text, COUNTRIES - set(MULTIWORD))
+    if foreign:
+        # Two-letter abbreviations are ambiguous — "or" is both Oregon and a
+        # conjunction, and Canadian provinces sit in the same lists. A named
+        # country outranks them.
+        return "international"
+    if _has(text, US_STATES) or _has(text, US_ABBR):
+        return "domestic"
     return "unknown"
 
 
@@ -102,7 +152,13 @@ def country(text):
     if not text:
         return None
     for chunk in SPLIT.split(text):
-        for p in _parts(chunk):
-            if p in COUNTRIES:
-                return p.title()
+        words = _words(chunk)
+        if not words:
+            continue
+        for name in MULTIWORD:
+            if re.search(rf"\b{re.escape(name)}\b", words):
+                return name.title()
+        for name in sorted(COUNTRIES - set(MULTIWORD)):
+            if re.search(rf"\b{re.escape(name)}\b", words):
+                return name.title()
     return None
