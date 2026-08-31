@@ -353,7 +353,7 @@ def _job(con, job_id):
 def cmd_gate(args):
     """Explain which resume a posting gets, and why."""
     r = _job(store.connect(), args.job_id)
-    d = gate.decide({"title": r["title"], "description": r["description"]})
+    d = gate.decide(r)
     print(f"{r['title']}\n{r['company']}  ·  {r['location'] or '—'}\n")
     print(f"variant  {d['variant']}")
     for reason in d["reasons"]:
@@ -367,7 +367,7 @@ def cmd_gate(args):
 def cmd_resume(args):
     """Render the resume this posting should get."""
     r = _job(store.connect(), args.job_id)
-    d = gate.decide({"title": r["title"], "description": r["description"]})
+    d = gate.decide(r)
     try:
         text = resume.generate(d["shape"], d["domain"])
     except resume.ResumeError as e:
