@@ -220,7 +220,10 @@ def render(doc):
         out += ["## Projects", ""]
         for p in doc["projects"]:
             url = f" ({p['url']})" if p.get("url") else ""
-            out += [f"- {p['name']}{url}: {p['text']}"]
+            # A project may be a bare name and link. The repo README is the
+            # description; a hardcoded separator left a dangling colon.
+            desc = f": {p['text']}" if p.get("text") else ""
+            out += [f"- {p['name']}{url}{desc}"]
         out += [""]
 
     edu = doc["education"]

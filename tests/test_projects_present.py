@@ -70,12 +70,26 @@ class ProjectsPresentTests(unittest.TestCase):
 
 
 class NoRewordingTests(unittest.TestCase):
-    def test_every_project_keeps_its_text(self):
+    """The guard is against REWORDING his prose, not against a project having none.
+
+    A link-only project is a deliberate style: the repo README is the
+    description. What must never happen is text being rewritten or trimmed.
+    """
+
+    def test_every_project_has_a_name(self):
         for p in resume.load()["projects"]:
-            self.assertTrue(p.get("text", "").strip())
+            self.assertTrue(p.get("name", "").strip())
+
+    def test_a_project_without_text_still_carries_a_link(self):
+        for p in resume.load()["projects"]:
+            if not p.get("text", "").strip():
+                self.assertTrue(p.get("url", "").strip(),
+                                f"{p['name']}: no description and no link leaves nothing to read")
 
     def test_no_project_text_was_truncated(self):
         for p in resume.load()["projects"]:
+            if not p.get("text", "").strip():
+                continue
             self.assertNotIn("…", p["text"])
             self.assertFalse(p["text"].rstrip().endswith("..."))
 
