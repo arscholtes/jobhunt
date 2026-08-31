@@ -131,8 +131,9 @@ def build(facts, shape, domain):
     roles = []
     for role in facts["roles"]:
         bullets = _select(role.get("bullets", []), shape, domain, BULLETS_PER_ROLE)
-        if not bullets:
-            continue
+        # A role whose every bullet is tagged out of this variant still renders
+        # its heading and dates. Presence is the requirement; bullets are
+        # optional. Skipping it removed an employer from the work history.
         roles.append({**role, "bullets": bullets})
     return {
         "me": facts["me"],
