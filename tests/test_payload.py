@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from jobhunt import digest, gate  # noqa: E402
+from jobhunt import digest, gate
 
 
 def row(company, title, total, jid=None):

@@ -12,7 +12,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from jobhunt import culture
+from typing import ClassVar
+
+from jobhunt import culture, score
 
 HEAD = "At ExampleCo we build with Ruby, Rails, Postgres, Kubernetes and Go. " * 4
 TAIL = " ExampleCo is an equal opportunity employer. Benefits include Terraform training. " * 4
@@ -61,7 +63,6 @@ class SuffixTests(unittest.TestCase):
 
 class StrippingTests(unittest.TestCase):
     def test_both_ends_are_removed_leaving_the_role(self):
-        from jobhunt import score
         body = HEAD + "The role: write Ruby all day." + TAIL
         out = score.strip_boilerplate(body, HEAD, TAIL)
         self.assertIn("write Ruby all day", out)
@@ -69,12 +70,10 @@ class StrippingTests(unittest.TestCase):
         self.assertNotIn("Kubernetes", out)
 
     def test_stripping_never_returns_empty_when_there_was_content(self):
-        from jobhunt import score
         body = HEAD + TAIL
         self.assertIsInstance(score.strip_boilerplate(body, HEAD, TAIL), str)
 
     def test_overlapping_prefix_and_suffix_do_not_strip_past_each_other(self):
-        from jobhunt import score
         body = "short"
         self.assertEqual(score.strip_boilerplate(body, "short", "short"), "")
 
@@ -86,7 +85,7 @@ if __name__ == "__main__":
 class AssessTests(unittest.TestCase):
     """assess() must stay pure: the network answer is passed in, never fetched here."""
 
-    PROFILE = {"culture": {"ships often": 5, "remote friendly": 3}}
+    PROFILE: ClassVar = {"culture": {"ships often": 5, "remote friendly": 3}}
 
     def corpus(self):
         return [{"description": HEAD + f"role {i}" + TAIL, "remote": 1,

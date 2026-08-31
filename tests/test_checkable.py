@@ -19,6 +19,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from typing import ClassVar
+
 from jobhunt import tailor
 
 BREX = [
@@ -94,7 +96,7 @@ class ActionableTests(unittest.TestCase):
 class BrexAcceptanceTests(unittest.TestCase):
     """The test to hold to: these four must not come back silently covered."""
 
-    FACTS = {  # noqa: RUF012
+    FACTS: ClassVar = {
         "skill_groups": [{"name": "Backend", "terms": ["ruby", "rails", "postgres",
                                                        "python", "docker", "sidekiq"]}],
         "roles": [{"company": "x", "title": "Eng",

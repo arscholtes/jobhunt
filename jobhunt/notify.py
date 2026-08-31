@@ -25,9 +25,12 @@ import pathlib
 import smtplib
 import tomllib
 
+from . import gate
+
+TITLE_CLIP = 46  # keeps a posting on one line on a phone
+
 CONFIG = pathlib.Path.home() / ".jobhunt-mail.toml"
 
-from . import gate
 
 
 class MailNotConfigured(RuntimeError):
@@ -77,7 +80,7 @@ def _table(rows):
     ]
     for r in rows:
         title = r["title"]
-        if len(title) > 46:
+        if len(title) > TITLE_CLIP:
             title = title[:45] + "…"
         where = "remote" if r["remote"] else (r["location"] or "")[:18]
         # Eligibility rides along with the posting rather than removing it. A

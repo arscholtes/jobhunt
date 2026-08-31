@@ -16,7 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from jobhunt import location  # noqa: E402
+from jobhunt import gate, location, score
 
 
 class ClassifyTests(unittest.TestCase):
@@ -95,34 +95,28 @@ class ScoringTests(unittest.TestCase):
                 "location": loc, "remote": remote}
 
     def test_an_international_posting_scores_below_a_domestic_one(self):
-        from jobhunt import score
         _, dom = score.score(self.job("Denver, Colorado"), self.profile())
         _, intl = score.score(self.job("Dublin, Ireland"), self.profile())
         self.assertLess(intl["location"], dom["location"])
 
     def test_an_international_posting_is_not_excluded_outright(self):
-        from jobhunt import score
         total, _ = score.score(self.job("Dublin, Ireland"), self.profile())
         self.assertGreaterEqual(total, 0)
 
     def test_an_unknown_location_is_treated_as_domestic_not_penalised(self):
-        from jobhunt import score
         _, unknown = score.score(self.job("In-Office"), self.profile())
         _, dom = score.score(self.job("Denver, Colorado"), self.profile())
         self.assertEqual(unknown["location"], dom["location"])
 
     def test_a_remote_international_posting_is_still_marked_down(self):
         # "Remote, Ireland" is remote and still needs work authorisation.
-        from jobhunt import score
         _, intl = score.score(self.job("Remote, Ireland", remote=1), self.profile())
         _, dom = score.score(self.job("Remote, Colorado", remote=1), self.profile())
         self.assertLess(intl["location"], dom["location"])
 
     def test_the_flag_names_the_country_so_he_can_judge_sponsorship(self):
-        from jobhunt import gate
         labels = gate.flag_labels(self.job("Dublin, Ireland"))
         self.assertIn("Ireland", labels)
 
     def test_a_domestic_posting_carries_no_international_flag(self):
-        from jobhunt import gate
         self.assertNotIn("international", gate.flag_labels(self.job("Denver, Colorado")))

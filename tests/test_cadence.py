@@ -86,7 +86,7 @@ class GithubCadenceTests(unittest.TestCase):
         self.assertIn("sort=pushed", self.calls[0])
 
     def test_a_malformed_repo_entry_is_skipped_not_fatal(self):
-        payload = repos(1) + [{"name": "bad"}]
+        payload = [*repos(1), {"name": "bad"}]
         c = cadence.github_cadence("acme", fetch=self.fetcher(payload))
         self.assertEqual(c["active_30d"], 1)
 
@@ -159,7 +159,7 @@ class ScoringTests(unittest.TestCase):
         self.assertIsInstance(why, str)
 
     def test_a_blog_alone_can_answer_the_question(self):
-        frac, why = cadence.ships_often_score(None, {"entries_90d": 6, "url": "http://x"})
+        frac, _why = cadence.ships_often_score(None, {"entries_90d": 6, "url": "http://x"})
         self.assertGreater(frac, 0)
 
     def test_the_stronger_of_the_two_signals_wins(self):

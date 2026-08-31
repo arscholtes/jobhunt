@@ -13,6 +13,10 @@ import ast
 import sys
 import unittest
 from pathlib import Path
+from typing import ClassVar
+
+from jobhunt import cli, notify, store
+from jobhunt.sources import ADAPTERS
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -42,16 +46,16 @@ class NoSendPathTests(unittest.TestCase):
 
     # The only outbound destinations the tool is allowed to have: public job-board
     # JSON, and the user's own mail server for the digest.
-    OUTBOUND_ALLOWED = {"jobhunt/sources/_http.py", "jobhunt/notify.py", "jobhunt/cadence.py"}
+    OUTBOUND_ALLOWED: ClassVar = {"jobhunt/sources/_http.py", "jobhunt/notify.py", "jobhunt/cadence.py"}
 
     def test_only_the_sanctioned_modules_open_the_network(self):
         offenders = []
         for path in runtime_modules():
             rel = str(path.relative_to(ROOT))
             src = path.read_text()
-            if "urlopen" in src or "http.client" in src or "smtplib" in src:
-                if rel not in self.OUTBOUND_ALLOWED:
-                    offenders.append(rel)
+            if ("urlopen" in src or "http.client" in src or "smtplib" in src) \
+                    and rel not in self.OUTBOUND_ALLOWED:
+                offenders.append(rel)
         self.assertEqual(offenders, [], "new outbound path outside the sanctioned modules")
 
     def test_no_module_posts_anywhere(self):
@@ -65,7 +69,6 @@ class NoSendPathTests(unittest.TestCase):
         self.assertEqual(offenders, [])
 
     def test_the_mail_path_sends_only_to_the_configured_recipient(self):
-        from jobhunt import notify
         src = (PACKAGE / "notify.py").read_text()
         self.assertIn("smtplib", src)
         # If a recipient could come from a posting, the tool could mail a company.
@@ -73,7 +76,6 @@ class NoSendPathTests(unittest.TestCase):
         self.assertTrue(hasattr(notify, "send"))
 
     def test_no_apply_or_submit_entry_point_exists(self):
-        from jobhunt import cli
         parser_src = (PACKAGE / "cli.py").read_text()
         for verb in ('"apply"', '"submit"', '"send"'):
             self.assertNotIn(f'sub.add_parser({verb}', parser_src)
@@ -100,7 +102,6 @@ class ReadOnlyBoardsTests(unittest.TestCase):
         self.assertEqual(offenders, [], "an adapter opening its own connection sidesteps the GET-only guarantee")
 
     def test_every_adapter_exposes_only_a_fetch(self):
-        from jobhunt.sources import ADAPTERS
         for name, mod in ADAPTERS.items():
             self.assertTrue(hasattr(mod, "fetch"), f"{name} has no fetch")
             self.assertFalse(hasattr(mod, "post"), f"{name} exposes a write path")
@@ -114,7 +115,7 @@ class NeverWritesCredentialsTests(unittest.TestCase):
         tree = ast.parse(src)
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "open":
-                mode = [a for a in node.args[1:2]]
+                mode = list(node.args[1:2])
                 if mode and isinstance(mode[0], ast.Constant):
                     self.assertNotIn("w", str(mode[0].value),
                                      "notify opens a file for writing")
@@ -135,7 +136,6 @@ class DatabaseIsLocalTests(unittest.TestCase):
     """The store is one local sqlite file — nothing ships it anywhere."""
 
     def test_the_database_path_is_local_to_the_repo(self):
-        from jobhunt import store
         self.assertIn("data", str(store.DB))
         self.assertFalse(str(store.DB).startswith("http"))
 

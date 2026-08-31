@@ -27,7 +27,8 @@ BULLETS_PER_ROLE = 5
 # Terms to float to the front of their skill group for a given axis. Membership
 # never changes — a variant reorders the evidence, it does not invent or hide it.
 PRIORITY = {
-    "backend":   ["ruby", "rails", "postgres", "sql", "sidekiq", "redis", "rest", "webhook", "multi-tenan", "event-driven"],
+    "backend":   ["ruby", "rails", "postgres", "sql", "sidekiq", "redis", "rest", "webhook",
+                  "multi-tenan", "event-driven"],
     "platform":  ["event-driven", "sidekiq", "docker", "opentelemetry", "multi-tenan", "code review", "test-driven"],
     "fullstack": ["ruby on rails", "hotwire", "react", "typescript", "javascript", "postgres"],
     "fde":       ["webhook", "rest", "integration", "sql", "postgres", "python", "docker"],
@@ -192,7 +193,7 @@ def render(doc):
 
     edu = doc["education"]
     if edu.get("show") and edu.get("lines"):
-        out += ["## Education", ""] + list(edu["lines"]) + [""]
+        out += ["## Education", "", *edu["lines"], ""]
 
     return "\n".join(out).rstrip() + "\n"
 
