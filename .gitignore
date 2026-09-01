@@ -1,11 +1,11 @@
 data/
-profile.toml
+profile.toml*
 __pycache__/
 *.pyc
 .DS_Store
 
 # Rendered resumes and the personal resume source.
-resume.toml
+resume.toml*
 out/
 
 # Generated evaluation output.
