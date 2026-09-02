@@ -163,7 +163,7 @@ deterministic gate, rather than one master resume rewritten per application.
 
 ## 6. The measurement that should drive the variant set
 
-Against the live corpus (1,839 postings; 206 scoring ≥ 45):
+Against the live post analysis (1,839 postings; 206 scoring ≥ 45):
 
 | Role shape | Share of shortlist |
 |---|---|

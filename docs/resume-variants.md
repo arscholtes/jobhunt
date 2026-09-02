@@ -14,7 +14,7 @@ resume.toml            one copy of every fact, tagged by where it applies
 
 ## Why a matrix, and why it is generated
 
-Two axes, because neither determines the other. Measured on the live corpus
+Two axes, because neither determines the other. Measured on the live postings
 (1,839 postings, 206 scoring ≥ 45):
 
 | role shape | share | | domain | share |
@@ -81,7 +81,7 @@ positive is visible as one.
 ### These patterns were wrong until they were measured
 
 Every flag pattern here started out matching ordinary English and had to be
-tightened against the corpus:
+tightened against the post analysis:
 
 - `level_above` matched 34 postings, of which **19 were the plain English words**
   — "engineering at Privy is *distinguished by*", "manage and *architect*
@@ -98,7 +98,7 @@ tightened against the corpus:
   loosely and the body only on an explicit statement about the role.
 
 The general rule: a regex over human prose is a hypothesis until it is run
-against the corpus and the matches are read.
+against the postings and the matches are read.
 
 ## Known precedence choices
 

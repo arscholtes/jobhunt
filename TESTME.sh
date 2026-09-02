@@ -63,7 +63,7 @@ $PY jobhunt.py gate "$JID"
 echo "  --- rendered (first 8 lines) ---"
 $PY jobhunt.py resume "$JID" | head -8
 
-hr "10. Culture report — corpus-derived, deliberately NOT wired into scoring"
+hr "10. Culture report — derived from the post analysis, deliberately NOT wired into scoring"
 $PY eval/culture_report.py 2>&1 | tail -3
 
 printf '\n\033[1mNot covered here:\033[0m a real SMTP send (needs ~/.jobhunt-mail.toml) and\n'

@@ -5,7 +5,7 @@ by a scoring improvement: stripping boilerplate lowered every score, and the top
 withheld posting missed a bar of 60 by 0.2 points. Nothing reported that the
 constant had stopped meaning what it meant when it was written.
 
-So the gate is a percentile of the scored corpus — it moves when scoring moves —
+So the gate is a percentile of the scored postings — it moves when scoring moves —
 and the volume is a rank cap, because what a reader wants is the best few they
 have not seen, not everything above a number.
 """
@@ -26,7 +26,7 @@ def scores(*values):
 
 
 class ThresholdTests(unittest.TestCase):
-    def test_the_bar_is_derived_from_the_corpus_not_a_constant(self):
+    def test_the_bar_is_derived_from_the_postings_not_a_constant(self):
         low = digest.percentile_bar(scores(*range(0, 100)), 0.90)
         high = digest.percentile_bar(scores(*range(100, 200)), 0.90)
         self.assertLess(low, high)
@@ -39,7 +39,7 @@ class ThresholdTests(unittest.TestCase):
         self.assertEqual(digest.percentile_bar(before, 0.90) - 5,
                          digest.percentile_bar(after, 0.90))
 
-    def test_an_empty_corpus_yields_a_bar_of_zero_rather_than_raising(self):
+    def test_no_postings_yields_a_bar_of_zero_rather_than_raising(self):
         self.assertEqual(digest.percentile_bar([], 0.90), 0.0)
 
     def test_a_single_score_is_its_own_bar(self):

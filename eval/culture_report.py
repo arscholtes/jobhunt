@@ -10,7 +10,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 from jobhunt import cadence, culture, store
 from jobhunt import profile as profile_mod
 
-MIN_POSTINGS = 3  # fewer than this and the corpus cannot speak to a company
+MIN_POSTINGS = 3  # fewer than this and the postings cannot answer for a company
 
 
 def main():
@@ -24,7 +24,7 @@ def main():
         rows = con.execute("SELECT * FROM jobs WHERE company = ?", (comp,)).fetchall()
         if len(rows) < MIN_POSTINGS:
             continue
-        # Cadence is the one term the corpus cannot answer, so it is fetched —
+        # Cadence is the one term the postings cannot answer, so it is fetched —
         # cached for a week, and left unknown rather than zeroed when nothing replies.
         cad = store.get_cadence(con, comp)
         if cad is None:
@@ -37,10 +37,10 @@ def main():
         results.append(a)
     results.sort(key=lambda a: -(a["score"] or 0))
 
-    out = ["# Culture — corpus evidence\n",
+    out = ["# Culture — post analysis evidence\n",
            "Derived from postings already in sqlite, plus one cached weekly lookup "
            "per company for shipping cadence — the only term a job posting cannot answer.",
-           "A term the corpus cannot speak to scores `unknown` and is excluded from",
+           "A term the postings cannot answer scores `unknown` and is excluded from",
            "the denominator, so silence never reads as a bad result.\n",
            "| company | culture | covered | postings | boilerplate |",
            "|---|---:|---:|---:|---:|"]

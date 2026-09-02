@@ -6,7 +6,7 @@ being international and "Remote U.S." stopped being domestic. Not misfiled —
 unclassified, which is worse, because unknown is treated as domestic and carries
 no flag.
 
-Measured on the live corpus: of the top 100 scored postings, 31 were unknown, and
+Measured on live postings: of the top 100 scored, 31 were unknown, and
 twelve of those are places he cannot work — including his single highest-scoring
 posting at 96.7.
 

@@ -52,7 +52,7 @@ def strip_boilerplate(description, boilerplate, suffix=""):
     role.
 
     @param description [String, nil] the posting body
-    Both ends are stripped. Across the stored corpus the shared tail is usually
+    Both ends are stripped. Across the stored postings the shared tail is usually
     the larger half — benefits, EEO statements and stack blurbs sit at the end —
     so removing only the preamble leaves most of the distortion behind.
 

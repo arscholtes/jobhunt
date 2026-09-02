@@ -124,7 +124,7 @@ class RequirementTests(unittest.TestCase):
 
 
 class HtmlRequirementTests(unittest.TestCase):
-    """The corpus stores HTML, not markdown.
+    """Postings are stored as HTML, not markdown.
 
     The first version of the extractor looked for "- " lines and found
     requirements in 0 of 192 high-scoring postings, because every board serves

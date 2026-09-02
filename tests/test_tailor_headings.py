@@ -1,6 +1,6 @@
 """Requirement headings are not always heading tags.
 
-Measured on the live corpus: 744 postings mark a requirements section as
+Measured on 744 live postings: they mark a requirements section as
 `<p><strong>Requirements</strong></p>` and only 249 use a real <h> tag. Matching
 only <h1>-<h6> left the gap analysis — the one section that decides whether to
 apply — silently blank on three quarters of the shortlist. Silently is the
