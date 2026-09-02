@@ -4,9 +4,9 @@ One posting is a sales document. A company's ENTIRE posting set is much harder t
 pose in: if only two of nineteen roles are remote, "remote friendly" is not what
 they are, whatever any single posting says.
 
-So culture here is an aggregate over the corpus already in sqlite — no new
+So culture here is an aggregate over the postings already in sqlite — no new
 requests, no keys, no scraping. Every number traces to postings on disk, and a
-term the corpus cannot speak to scores UNKNOWN rather than zero. Unknown is
+term the postings cannot answer scores UNKNOWN rather than zero. Unknown is
 excluded from the denominator, so silence never masquerades as a bad result.
 
 Deliberately a separate axis from fit. Averaging "does this match what I do" with
@@ -65,7 +65,7 @@ def _descriptions(rows):
 def boilerplate_suffix(rows, floor=200):
     """Longest common suffix across a company's descriptions.
 
-    Measured across the stored corpus this is usually the larger half: gitlab
+    Measured across the stored postings this is usually the larger half: gitlab
     repeats 1,483 characters of preamble and 3,708 of tail, and asana repeats
     2,014 characters of tail with no shared preamble at all. Benefits, EEO
     statements and stack blurbs sit at the end, so a prefix-only stripper leaves
@@ -88,7 +88,7 @@ def boilerplate_suffix(rows, floor=200):
 
 
 # Each known culture term maps to a probe returning (score 0-1, evidence string),
-# or None when the corpus genuinely cannot speak to it.
+# or None when the postings genuinely cannot answer it.
 def _remote_friendly(rows):
     remote = sum(1 for r in rows if r["remote"])
     frac = remote / len(rows)
@@ -119,7 +119,7 @@ PROBES = {
     "no on-call pager rotation": _no_oncall,
     "writes things down": _writes_things_down,
     "small engineering team": _small_team,
-    # Cadence needs commit or blog history; the corpus cannot see it.
+    # Cadence needs commit or blog history; the postings cannot show it.
     "ships often": None,
 }
 
@@ -127,7 +127,7 @@ PROBES = {
 def assess(rows, profile, ships_often=None):
     """Score one company's culture 0-100 against the profile's [culture] weights.
 
-    Stays pure: "ships often" is the one term the corpus cannot answer, and its
+    Stays pure: "ships often" is the one term the postings cannot answer, and its
     evidence is passed in rather than fetched here, so scoring never depends on
     the network being up.
 

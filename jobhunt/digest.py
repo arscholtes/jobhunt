@@ -6,7 +6,7 @@ few points — so a bar of 60 that was right when written started withholding go
 postings, and the best withheld one missed by 0.2. Nothing reported that the
 constant had stopped meaning what it used to mean.
 
-So the gate is a percentile of the scored corpus, which moves when scoring moves,
+So the gate is a percentile of the scored postings, which moves when scoring moves,
 and the volume is a rank cap, because what a reader wants each morning is the
 best few they have not seen rather than everything above a number. The percentile
 alone would flood on a good day; the cap alone would send the best of a bad batch
@@ -35,9 +35,9 @@ def percentile_bar(totals, fraction=DEFAULT_PERCENTILE):
 
     Disqualified postings carry -1 as a sentinel and are excluded: they are not
     low scores, they are absences, and letting them into the distribution would
-    drag the bar down as the corpus grew.
+    drag the bar down as more postings arrived.
 
-    @param totals [Array<Float>] every score in the corpus
+    @param totals [Array<Float>] every score in the post analysis
     @param fraction [Float] 0-1
     @return [Float]
     """

@@ -1,9 +1,9 @@
 """How often a company actually ships.
 
 'Ships often' carries the highest weight in the profile and reads "unknown" for
-every company, because the corpus cannot answer it: a job posting never says how
+every company, because the postings cannot answer it: a job posting never says how
 often anyone ships. The answer lives in commit history and changelogs, so this is
-the one culture probe that leaves the corpus.
+the one culture probe that leaves the postings.
 
 Every fetch is injected. That keeps the network at the edges — tests and CI never
 touch it — and it keeps a fetch failure distinguishable from a real zero. An

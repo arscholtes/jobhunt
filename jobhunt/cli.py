@@ -85,7 +85,7 @@ def cmd_score(args):
     con = store.connect()
     jobs = con.execute("SELECT * FROM jobs").fetchall()
 
-    # Per-company boilerplate is computed once across that company's whole corpus,
+    # Per-company boilerplate is computed once across that company's whole set of postings,
     # then stripped from each posting before it is scored. Without this a company
     # that repeats its stack on every posting gives all of them a perfect skills
     # score, ranking its field roles above its engineering ones.
@@ -171,11 +171,11 @@ def cmd_requirements(args):
     for r in rows:
         by_company.setdefault(r["company"], []).append(r)
     all_rows = con.execute("SELECT * FROM jobs").fetchall()
-    corpus = {}
+    by_company = {}
     for r in all_rows:
-        corpus.setdefault(r["company"], []).append(r)
-    boiler = {c: (culture.boilerplate(corpus.get(c, [])),
-                  culture.boilerplate_suffix(corpus.get(c, [])))
+        by_company.setdefault(r["company"], []).append(r)
+    boiler = {c: (culture.boilerplate(by_company.get(c, [])),
+                  culture.boilerplate_suffix(by_company.get(c, [])))
               for c in by_company}
 
     print(req_mod.render(req_mod.summarise([dict(r) for r in rows], prof, boilerplate=boiler)))
@@ -244,7 +244,7 @@ def _print_picked(picked, targets):
 def cmd_digest(args):
     """The daily shortlist, and the one thing a scheduled job calls.
 
-    The bar is the corpus percentile rather than a constant, because a constant
+    The bar is a percentile of the scored postings rather than a constant, because a constant
     was silently invalidated once already: stripping boilerplate lowered every
     score and a fixed bar of 60 began withholding good postings, the best of them
     missing by 0.2.
@@ -259,7 +259,7 @@ def cmd_digest(args):
     rows = [dict(r) for r in notify.unsent(con, min_score=bar, limit=500)]
     picked, held = digest.select_with_overflow(rows, bar, limit=args.limit)
 
-    print(f"bar {bar:.1f} (corpus {int(digest.DEFAULT_PERCENTILE * 100)}th percentile)")
+    print(f"bar {bar:.1f} (post analysis {int(digest.DEFAULT_PERCENTILE * 100)}th percentile)")
 
     # Written every run and regenerated whole, so it cannot drift from the
     # database. It carries the entire shortlist rather than the unsent delta —

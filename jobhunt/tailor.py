@@ -2,7 +2,7 @@
 
 A market-frequency model lived here and has been removed rather than left
 dormant. It decided what a requirement asked for from how rare its terms were,
-which inverts on a tech corpus where the common terms are the important ones.
+which inverts on tech postings where the common terms are the important ones.
 Dead code with passing tests beside it is worse than either alone, because it
 reads as a supported path.
 
@@ -50,7 +50,7 @@ STEM_MIN = 4
 MAX_STEM_GAP = 3
 # Below two characters a "name" is an initial or punctuation.
 MIN_NAME_CHARS = 2
-# Measured against the corpus rather than guessed. "What you bring" appears
+# Measured against the postings rather than guessed. "What you bring" appears
 # without the apostrophe-ll that the first version demanded, and Anthropic phrases
 # it as "you may be a good fit if".
 #
@@ -132,7 +132,7 @@ def select(items, job, shape=None, domain=None, limit=BULLETS_PER_ROLE):
 # lines and found requirements in 0 of 192 postings — a parser written against a
 # format the data does not use, whose empty output reads exactly like "you match
 # every requirement".
-# A heading is not always a heading tag. Measured on the live corpus, 744 postings
+# A heading is not always a heading tag. Measured on 744 live postings,
 # introduce their requirements with <p><strong>Requirements</strong></p> and only
 # 249 use a real <h> tag — so matching h1-h6 alone left the gap analysis blank on
 # three quarters of the shortlist, and blank while claiming the posting stated
@@ -318,7 +318,7 @@ def requirements(job):
     return out
 
 
-def _corpus(facts):
+def _evidence(facts):
     """@return [Array<Tuple(str, set)>] every piece of evidence and its terms."""
     entries = []
     for group in facts.get("skill_groups") or []:
@@ -356,7 +356,7 @@ NOT_TECH = {
     "bachelor", "master", "phd", "bs", "ms", "ba", "ma",
 }
 # Words that open a requirement line by grammar rather than by being a name.
-# Measured across 10,195 requirement lines in the corpus: these are the framing
+# Measured across 10,195 requirement lines in the postings: these are the framing
 # words, in frequency order. Excluding EVERY capitalised opener instead threw
 # away the technology whenever a line began with it — "Rails experience",
 # "Kubernetes in production" — which is a common way to write one.
@@ -505,8 +505,8 @@ def evidence(reqs, facts, years_of_experience=None):
     """Match each stated requirement, and be honest about how well.
 
     ONLY CHECKABLE ASKS COUNT. An earlier version decided what a requirement asked
-    for from how rare its terms were across the corpus, which inverts on a tech
-    corpus: Kubernetes, AWS and Terraform appear in many postings BECAUSE they
+    for from how rare its terms were across the postings, which inverts on tech
+    postings: Kubernetes, AWS and Terraform appear in many of them BECAUSE they
     matter, so rarity classified them as boilerplate and dropped them, while
     "societal impacts and ethics" survived by being unusual. Every hard ask on a
     real posting came back met and the gap list was entirely soft skills.
@@ -521,7 +521,7 @@ def evidence(reqs, facts, years_of_experience=None):
     if not reqs:
         return [], []
 
-    corpus = _corpus(facts)
+    evidence = _evidence(facts)
     have_years = years_of_experience
     if have_years is None:
         have_years = years_from(facts)
@@ -537,7 +537,7 @@ def evidence(reqs, facts, years_of_experience=None):
             continue
 
         hits, answered = [], set()
-        for text, terms in corpus:
+        for text, terms in evidence:
             shared = _matches(tech, terms)
             if shared:
                 hits.append((len(shared), text))

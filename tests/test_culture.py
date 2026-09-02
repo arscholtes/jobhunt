@@ -1,6 +1,6 @@
 """Per-company boilerplate detection.
 
-Measured across the stored corpus, the repeated text usually sits at BOTH ends of
+Measured across the stored postings, the repeated text usually sits at BOTH ends of
 a posting and the tail is the larger half — gitlab 1,483 chars of shared prefix
 against 3,708 of shared suffix, asana 2,014 of suffix against none at all. A
 prefix-only stripper leaves most of the distortion in place.
@@ -87,7 +87,7 @@ class AssessTests(unittest.TestCase):
 
     PROFILE: ClassVar = {"culture": {"ships often": 5, "remote friendly": 3}}
 
-    def corpus(self):
+    def postings(self):
         return [{"description": HEAD + f"role {i}" + TAIL, "remote": 1,
                  "location": "Remote", "title": "Backend Engineer"} for i in range(4)]
 
@@ -95,28 +95,28 @@ class AssessTests(unittest.TestCase):
         return next(t for t in result["terms"] if t["term"] == name)
 
     def test_ships_often_reads_unknown_without_external_evidence(self):
-        out = culture.assess(self.corpus(), self.PROFILE)
+        out = culture.assess(self.postings(), self.PROFILE)
         self.assertIsNone(self.term(out, "ships often")["score"])
 
     def test_ships_often_is_scored_when_evidence_is_supplied(self):
-        out = culture.assess(self.corpus(), self.PROFILE, ships_often=(0.8, "8/10 repos pushed in 30d"))
+        out = culture.assess(self.postings(), self.PROFILE, ships_often=(0.8, "8/10 repos pushed in 30d"))
         self.assertEqual(self.term(out, "ships often")["score"], 0.8)
 
     def test_supplied_evidence_carries_its_source_into_the_report(self):
-        out = culture.assess(self.corpus(), self.PROFILE, ships_often=(0.8, "8/10 repos pushed in 30d"))
+        out = culture.assess(self.postings(), self.PROFILE, ships_often=(0.8, "8/10 repos pushed in 30d"))
         self.assertIn("repos pushed", self.term(out, "ships often")["why"])
 
     def test_answering_the_highest_weighted_term_raises_coverage(self):
-        without = culture.assess(self.corpus(), self.PROFILE)
-        with_ = culture.assess(self.corpus(), self.PROFILE, ships_often=(0.8, "why"))
+        without = culture.assess(self.postings(), self.PROFILE)
+        with_ = culture.assess(self.postings(), self.PROFILE, ships_often=(0.8, "why"))
         self.assertGreater(with_["covered"], without["covered"])
 
     def test_a_zero_cadence_is_scored_rather_than_treated_as_unknown(self):
-        out = culture.assess(self.corpus(), self.PROFILE, ships_often=(0.0, "0/30 repos pushed in 30d"))
+        out = culture.assess(self.postings(), self.PROFILE, ships_often=(0.0, "0/30 repos pushed in 30d"))
         self.assertEqual(self.term(out, "ships often")["score"], 0.0)
 
     def test_culture_never_reports_a_fit_score(self):
         # Culture is a separate axis, shown beside the fit score and never summed in.
-        out = culture.assess(self.corpus(), self.PROFILE, ships_often=(0.8, "why"))
+        out = culture.assess(self.postings(), self.PROFILE, ships_often=(0.8, "why"))
         self.assertNotIn("total", out)
         self.assertNotIn("fit", out)

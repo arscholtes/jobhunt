@@ -1,4 +1,4 @@
-"""Shipping cadence: the one culture term the postings corpus cannot see.
+"""Shipping cadence: the one culture term the postings cannot answer.
 
 'Ships often' carries the highest weight in the profile and reads 'unknown' for
 every company, because a job posting never says how often the company ships. The

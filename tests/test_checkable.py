@@ -1,7 +1,7 @@
 """An ask is actionable when it names something CHECKABLE.
 
 Deciding what counts as a requirement from how RARE a term is inverts on a tech
-corpus: Kubernetes, AWS, Terraform, Go and Java appear in many postings precisely
+postings: Kubernetes, AWS, Terraform, Go and Java appear in many of them precisely
 because they matter, so frequency classified them as boilerplate and dropped them
 from the ask — while "societal impacts and ethics", being rare, survived. On the
 brex posting every hard requirement came back matched with nothing unmet.

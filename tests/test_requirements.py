@@ -58,7 +58,7 @@ class DemandTests(unittest.TestCase):
         entry = next(d for d in req.summarise(rows, profile())["demanded"] if d["term"] == "ruby")
         self.assertAlmostEqual(entry["share"], 0.25, places=2)
 
-    def test_an_empty_corpus_does_not_divide_by_zero(self):
+    def test_no_postings_does_not_divide_by_zero(self):
         out = req.summarise([], profile())
         self.assertEqual(out["postings"], 0)
 
@@ -125,7 +125,7 @@ class RenderTests(unittest.TestCase):
         rows = [posting("ruby")] * 3
         self.assertIn("cobol", req.render(req.summarise(rows, profile())))
 
-    def test_an_empty_corpus_renders_a_sentence_rather_than_crashing(self):
+    def test_no_postings_renders_a_sentence_rather_than_crashing(self):
         self.assertIsInstance(req.render(req.summarise([], profile())), str)
 
 
