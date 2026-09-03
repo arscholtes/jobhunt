@@ -347,7 +347,9 @@ def _job(con, job_id):
     r = con.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
     if not r:
         sys.exit(f"error: no job with id {job_id!r}")
-    return r
+    # A dict, not the Row. gate.classify reads the posting through .get(), which
+    # a Row does not have, so handing one out raised for every stored posting.
+    return dict(r)
 
 
 def cmd_gate(args):
