@@ -24,7 +24,7 @@ from . import location as location_mod
 # catch-all "software engineer", which would otherwise swallow all of them.
 SHAPES = [
     ("fde", r"forward[- ]deployed|solutions engineer|support engineer|field engineer"
-            r"|technical solutions|professional services|implementation engineer"),
+            r"|professional services|implementation engineer"),
     ("frontend", r"front[- ]?end|\bui engineer|design engineer|web developer"),
     ("backend", r"back[- ]?end|server[- ]side"),
     ("fullstack", r"full[- ]?stack"),
@@ -38,6 +38,26 @@ SHAPES = [
     ("generic", r"software (engineer|developer)|engineer"),
 ]
 
+# Precise as a job title, ordinary as body prose. "translate business needs into
+# durable, scalable technical solutions" is standard backend copy, and matching it
+# against a body handed a marketplace platform role the forward-deployed resume,
+# which then withheld every backend bullet it had. Same split as REGION_LOCK
+# against REGION_LOCK_TAG below.
+TITLE_ONLY_SHAPE_TERMS = {"fde": r"technical solutions"}
+
+
+def _shapes(field):
+    """SHAPES for one field: widened for a title, body-safe otherwise.
+
+    @param field [str] "title" or "body"
+    """
+    if field != "title":
+        return SHAPES
+    return [(name, f"{pat}|{TITLE_ONLY_SHAPE_TERMS[name]}"
+             if name in TITLE_ONLY_SHAPE_TERMS else pat)
+            for name, pat in SHAPES]
+
+
 # Shapes with no resume of their own fall back to the nearest one that has.
 FALLBACK = {"frontend": "fullstack", "product": "fullstack",
             "data": "backend", "security": "backend", "mobile": "fullstack"}
@@ -47,7 +67,16 @@ FALLBACK = {"frontend": "fullstack", "product": "fullstack",
 # section either way, but the domain framing only gets said once, in the summary.
 DOMAINS = [
     ("ai", r"\bllm\b|large language model|\bgenai\b|generative ai|foundation model"
-           r"|\brag\b|agentic|ai agent|prompt engineering"),
+           r"|\brag\b|agentic|ai agent|prompt engineering"
+           # A posting can say AI thirty times without using any of the jargon
+           # above. Requiring a qualifier keeps this off a bare mention.
+           #
+           # "ai-native" is deliberately absent: of 46 postings it matched, 42
+           # were inside company boilerplate ("the ai-native curiosity to create
+           # a solution"), so it read a culture blurb as role content. score()
+           # strips boilerplate before matching and classify() does not.
+           r"|ai[- ](?:first|driven|assisted|enabled|powered|transformation)"
+           r"|ai (?:development )?tools?"),
     ("devtools", r"developer tool|developer experience|\bsdk\b|api platform"
                  r"|open source|ci/cd|developer productivity"),
     ("rails", r"ruby on rails|\brails\b|\bruby\b"),
@@ -129,11 +158,11 @@ def classify(job):
     # against 'generic' and stopping there skipped the body fallback that exists
     # for exactly this case — a third of top postings got the least-tailored
     # resume while their bodies said plainly what the role was.
-    shape, hit = _first([s for s in SHAPES if s[0] != "generic"], title)
+    shape, hit = _first([s for s in _shapes("title") if s[0] != "generic"], title)
     if shape:
         reasons.append(f"shape={shape} from title term {hit!r}")
     elif re.search(ENGINEERING_TITLE, title):
-        shape, hit = _first([s for s in SHAPES if s[0] != "generic"], body)
+        shape, hit = _first([s for s in _shapes("body") if s[0] != "generic"], body)
         if shape:
             reasons.append(f"shape={shape} from body term {hit!r} (title was ambiguous)")
         else:
