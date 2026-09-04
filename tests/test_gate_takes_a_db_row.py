@@ -11,7 +11,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-from jobhunt import cli
+from jobhunt import cli, gate
 
 
 class GateAcceptsARowFromTheJobsTable(unittest.TestCase):
@@ -32,7 +32,6 @@ class GateAcceptsARowFromTheJobsTable(unittest.TestCase):
         return con
 
     def test_the_row_the_cli_fetches_is_a_mapping_gate_can_read(self):
-        from jobhunt import gate
         row = cli._job(self._con(), "workday:acme:R-1")
         decision = gate.decide(row)                      # raised AttributeError
         self.assertIn("variant", decision)
