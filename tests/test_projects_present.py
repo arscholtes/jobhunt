@@ -41,9 +41,17 @@ class ProjectsPresentTests(unittest.TestCase):
         self.assertTrue(resume.build(facts, "fullstack", "rails")["projects"])
 
     def test_the_agent_workflow_reaches_a_fullstack_variant(self):
+        """The agent-workflow project is FPS, and it must still land here.
+
+        The two were separate entries: one named and linked with no description,
+        one described with neither. They are merged, and FPS is untagged on both
+        axes, so it reaches every variant rather than the two it used to.
+        """
         facts = resume.load()
-        names = {p["name"] for p in resume.build(facts, "fullstack", "ai")["projects"]}
-        self.assertIn("Multi-session agent workflow", names)
+        projects = resume.build(facts, "fullstack", "ai")["projects"]
+        fps = next((p for p in projects if p["name"] == "FPS"), None)
+        self.assertIsNotNone(fps, f"FPS missing from fullstack.ai: {[p['name'] for p in projects]}")
+        self.assertTrue(fps["text"], "FPS renders with no description, so nothing can match it")
 
     def test_the_fallback_picks_the_highest_weighted_project(self):
         facts = {**resume.load(), "projects": [

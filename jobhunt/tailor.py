@@ -80,7 +80,7 @@ TOKEN = re.compile(r"[a-z][a-z0-9+#.-]{1,}")
 def _terms(text):
     """@return [set<str>] meaningful lowercase tokens, stripped of ordinary prose."""
     return {t.strip(".-") for t in TOKEN.findall((text or "").lower())
-            if t not in STOP and len(t) > MIN_TOKEN_CHARS} - STOP
+            if t not in STOP and (len(t) > MIN_TOKEN_CHARS or t in SHORT_TECH)} - STOP
 
 
 def _posting_terms(job):
@@ -174,8 +174,13 @@ def _html_requirements(text):
 
 
 BULLET_BUDGET = 8
-# Two characters or fewer is a preposition, not a skill.
+# Two characters or fewer is a preposition, not a skill — except for the handful
+# that are technologies. Dropping "ai" made every AI requirement unmatchable: the
+# requirement side keeps it and the evidence side could not produce it, so no
+# wording on the resume could ever answer one. "go" is deliberately absent; in
+# prose it is the verb far more often than the language.
 MIN_TOKEN_CHARS = 2
+SHORT_TECH = frozenset({"ai", "ml", "ui", "ux", "qa", "bi"})
 MIN_OPTIONS = 2
 MIN_REQUIREMENT_CHARS = 3
 MAX_REQUIREMENT_CHARS = 300
