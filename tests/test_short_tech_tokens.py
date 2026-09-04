@@ -23,7 +23,7 @@ class ShortTechSurvivesTokenising(unittest.TestCase):
         req = ["AI Fluency: Practical experience with AI coding tools."]
         facts = {"roles": [], "projects": [
             {"name": "FPS", "text": "Five AI coding agents running against one repository."}]}
-        matched, gaps = tailor.evidence(req, facts)
+        _, gaps = tailor.evidence(req, facts)
         self.assertEqual(gaps, [], f"unmatchable: {gaps}")
 
     def test_ordinary_two_letter_words_are_still_dropped(self):
