@@ -177,6 +177,23 @@ def build(facts, shape, domain):
     }
 
 
+def _role_block(role):
+    """One role: heading, dates, optional platform context, then the bullets.
+
+    @param role [Hash] a built role
+    @return [Array<String>] markdown lines
+    """
+    dates = f"{role.get('start', '')} - {role.get('end', '')}".strip(" -")
+    block = [f"### {role['title']}, {role['company']}",
+             f"{dates}" + (f" | {role['location']}" if role.get("location") else ""), ""]
+    # Context, above the claims and never formatted as one. What the platform ran
+    # is not the same statement as what this person built, and a reader is
+    # entitled to tell them apart.
+    if role.get("stack"):
+        block += [role["stack"], ""]
+    return block + [f"- {b['text']}" for b in role["bullets"]] + [""]
+
+
 def render(doc):
     """Parse-safe Markdown: single column, no tables, contact details in the body."""
     me = doc["me"]
@@ -199,11 +216,7 @@ def render(doc):
             return []
         block = [f"## {heading}", ""]
         for role in roles:
-            dates = f"{role.get('start', '')} - {role.get('end', '')}".strip(" -")
-            block += [f"### {role['title']}, {role['company']}",
-                      f"{dates}" + (f" | {role['location']}" if role.get("location") else ""), ""]
-            block += [f"- {b['text']}" for b in role["bullets"]]
-            block += [""]
+            block += _role_block(role)
         return block
 
     # Two sections, each newest first. Employment leads because that is what a
