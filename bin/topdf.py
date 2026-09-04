@@ -16,10 +16,14 @@ nothing.
 """
 import html
 import pathlib
+import shutil
 import subprocess
 import sys
+import tempfile
+import time
 
 MIN_ARGS = 2  # script plus the markdown file
+RENDER_TIMEOUT_S = 60
 
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 
@@ -118,10 +122,34 @@ def main():
     out_pdf = pathlib.Path(sys.argv[2]) if len(sys.argv) > MIN_ARGS else src.with_suffix(".pdf")
     tmp = src.with_suffix(".render.html")
     tmp.write_text(to_html(src.read_text(), src.stem))
-    subprocess.run([CHROME, "--headless", "--disable-gpu", "--no-pdf-header-footer",
-                    f"--print-to-pdf={out_pdf}", tmp.resolve().as_uri()],
-                   check=True, capture_output=True)
-    tmp.unlink()
+    # Chrome 152 writes the PDF and then never exits, so waiting on the process
+    # waits forever. The file is the result: poll until it exists and stops
+    # growing, then kill. Its own profile directory keeps it clear of the lock a
+    # running Chrome holds.
+    profile = tempfile.mkdtemp(prefix="topdf-chrome-")
+    out_pdf.unlink(missing_ok=True)
+    proc = subprocess.Popen(
+        [CHROME, "--headless", "--disable-gpu", "--no-pdf-header-footer",
+         f"--user-data-dir={profile}",
+         f"--print-to-pdf={out_pdf}", tmp.resolve().as_uri()],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        deadline = time.monotonic() + RENDER_TIMEOUT_S
+        while time.monotonic() < deadline and proc.poll() is None:
+            if out_pdf.exists() and out_pdf.stat().st_size:
+                size = out_pdf.stat().st_size
+                time.sleep(0.4)
+                if out_pdf.exists() and out_pdf.stat().st_size == size:
+                    break
+            time.sleep(0.2)
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait(timeout=10)
+        shutil.rmtree(profile, ignore_errors=True)
+        tmp.unlink()
+    if not out_pdf.exists() or not out_pdf.stat().st_size:
+        sys.exit(f"error: Chrome produced no PDF at {out_pdf}")
     print(f"{out_pdf}  ({out_pdf.stat().st_size:,} bytes)")
 
 
