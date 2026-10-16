@@ -1,5 +1,6 @@
 """Load and validate profile.toml."""
-import pathlib, tomllib
+import pathlib
+import tomllib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PATH = ROOT / "profile.toml"

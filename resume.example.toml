@@ -1,0 +1,93 @@
+# Canonical resume facts. The single source every generated variant reads from.
+#
+# There is exactly one copy of each fact here. The variants in jobhunt/resume.py
+# are *selections and orderings* of this file, never rewrites of it — so a fact
+# you correct once is corrected in every cell of the matrix on the next render.
+#
+# Tagging: a bullet with no `shapes` is eligible for every role shape, and one
+# with no `domains` is eligible for every domain. Tag only to *restrict*.
+#   shapes  = backend | platform | fullstack | generic | fde
+#   domains = ai | devtools | rails | general
+# `weight` (0-10) breaks ties when more bullets qualify than a variant has room
+# for. Shape and domain matches add to it at render time.
+
+[me]
+name     = "Your Name"
+email    = "you@example.com"
+phone    = ""                      # optional; omit rather than fake
+location = "City, ST"
+github   = "https://github.com/you"
+linkedin = ""
+site     = ""
+
+# ── summaries ──────────────────────────────────────────────────────────────
+# The one place role shape is stated outright. A keyword model cannot infer
+# "backend, not frontend" from a skills list — so say it in prose.
+# Lookup order is most-specific-first: "shape.domain" -> "shape" -> "default".
+[summaries]
+default            = "Software engineer with N years building production web systems."
+backend            = "Backend engineer focused on multi-tenant data models, background processing and third-party integrations."
+"backend.ai"       = "Backend engineer building the unglamorous half of AI products — the data model, the job pipeline and the integrations underneath the model call."
+platform           = "Platform engineer working on the shared seams of a monolith: authorization, events, background jobs and the lint gates that keep them consistent."
+fullstack          = "Full-stack product engineer shipping server-rendered features end to end, from schema to the page."
+fde                = "Engineer who ships customer-facing integrations and debugs them in the customer's environment."
+generic            = "Software engineer with N years on a production Rails monolith serving multiple tenants."
+
+# ── skills ─────────────────────────────────────────────────────────────────
+# Grouped so a parser reads clean lines, never a table. Order within a group is
+# adjusted per variant; membership is not. List a technology once, spelled the
+# way a recruiter would search it.
+[[skill_groups]]
+name    = "Languages"
+terms   = ["Ruby", "JavaScript", "TypeScript", "Python", "SQL"]
+
+[[skill_groups]]
+name    = "Frameworks"
+terms   = ["Ruby on Rails", "React", "Node.js", "Hotwire", "RSpec"]
+
+[[skill_groups]]
+name    = "Data & infrastructure"
+terms   = ["PostgreSQL", "Redis", "Sidekiq", "Docker", "OpenTelemetry"]
+
+[[skill_groups]]
+name    = "Practices"
+terms   = ["Multi-tenancy", "Event-driven architecture", "REST APIs", "Webhooks", "Test-driven development", "Code review"]
+
+# ── experience ─────────────────────────────────────────────────────────────
+# Newest first. Dates as "YYYY-MM"; `end = "present"` for the current role.
+[[roles]]
+company  = "Company Name"
+title    = "Your Title"
+start    = "YYYY-MM"
+end      = "present"
+location = "Remote"
+
+  [[roles.bullets]]
+  text   = "Describe one thing you built, the constraint it was built under, and what changed as a result."
+  shapes = []
+  domains = []
+  weight = 8
+
+  [[roles.bullets]]
+  text   = "A bullet only a backend posting should see."
+  shapes = ["backend", "platform"]
+  domains = []
+  weight = 7
+
+# ── projects ───────────────────────────────────────────────────────────────
+# Optional. Same tagging rules. Useful for showing domain evidence that the day
+# job does not supply.
+[[projects]]
+name    = "Project name"
+url     = ""
+text    = "One line on what it does and what is interesting about how it works."
+shapes  = []
+domains = []
+weight  = 5
+
+# ── education ──────────────────────────────────────────────────────────────
+# Omit the section entirely rather than list an incomplete credential. Degree
+# language in a posting is handled by the gate as a displayed flag, not here.
+[education]
+show  = false
+lines = []

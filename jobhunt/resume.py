@@ -1,0 +1,250 @@
+"""Generate one resume variant from the canonical facts.
+
+The matrix is generated, not maintained. Every cell is a *selection and
+ordering* of resume.toml, so there is exactly one copy of each fact and
+correcting it once corrects it everywhere. Hand-maintaining the same eight
+documents would mean applying every correction eight times and discovering the
+one you missed in an interview.
+
+Construction is fixed across all cells and is the one part not up for tuning,
+because it defends against the only resume failure that is actually measured:
+two-column layouts scrambled in 7 of 8 ATS parsers tested, table content
+dropped in 5 of 8, header/footer text ignored, and image-based text losing name
+and contact details every time. So: single column, no tables, no sidebars,
+contact in the body, standard section headings, real text.
+
+What varies per cell is which evidence leads — not how it is laid out.
+"""
+import pathlib
+import tomllib
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+PATH = ROOT / "resume.toml"
+EXAMPLE = ROOT / "resume.example.toml"
+
+BULLETS_PER_ROLE = 5
+
+# Terms to float to the front of their skill group for a given axis. Membership
+# never changes — a variant reorders the evidence, it does not invent or hide it.
+PRIORITY = {
+    "backend":   ["ruby", "rails", "postgres", "sql", "sidekiq", "redis", "rest", "webhook",
+                  "multi-tenan", "event-driven"],
+    "platform":  ["event-driven", "sidekiq", "docker", "opentelemetry", "multi-tenan", "code review", "test-driven"],
+    "fullstack": ["ruby on rails", "hotwire", "react", "typescript", "javascript", "postgres"],
+    "fde":       ["webhook", "rest", "integration", "sql", "postgres", "python", "docker"],
+    "generic":   [],
+    "ai":        ["python", "opentelemetry", "event-driven", "rest", "webhook"],
+    "devtools":  ["typescript", "node", "docker", "rest", "code review", "test-driven"],
+    "rails":     ["ruby", "ruby on rails", "rails", "rspec", "sidekiq", "hotwire", "postgres"],
+    "general":   [],
+}
+
+
+class ResumeError(RuntimeError):
+    pass
+
+
+def load(path=None):
+    p = pathlib.Path(path) if path else PATH
+    if not p.exists():
+        raise ResumeError(
+            f"No resume facts at {p}. Copy {EXAMPLE.name} to {p.name} and fill it in."
+        )
+    with p.open("rb") as fh:
+        data = tomllib.load(fh)
+    for key in ("me", "summaries"):
+        if key not in data:
+            raise ResumeError(f"{p.name} is missing required section [{key}]")
+    data.setdefault("roles", [])
+    data.setdefault("projects", [])
+    data.setdefault("skill_groups", [])
+    data.setdefault("education", {"show": False, "lines": []})
+    return data
+
+
+def _eligible(item, shape, domain):
+    shapes, domains = item.get("shapes") or [], item.get("domains") or []
+    return (not shapes or shape in shapes) and (not domains or domain in domains)
+
+
+def _rank(item, shape, domain):
+    """Weight first, relevance as the tiebreaker.
+
+    Tags decide *eligibility*; weight decides *order*. An earlier version added a
+    flat bonus for a shape or domain match, which let three tagged weight-8
+    bullets push out an untagged weight-10 one — relevance outranking your own
+    judgment of what your best material is. An untagged bullet is eligible
+    everywhere, which is not a reason to rank it last.
+    """
+    return (item.get("weight", 5),
+            shape in (item.get("shapes") or []),
+            domain in (item.get("domains") or []))
+
+
+def _select(items, shape, domain, limit=None):
+    """Pick the most relevant items, then restore the order they were written in.
+
+    Rank decides WHICH bullets survive; it should not decide what order a reader
+    meets them in. Sorting the survivors by score made a role open with its
+    trophy and mention being founded third — each bullet strong, the sequence
+    incoherent. Authoring order is the narrative, so the winners go back into it.
+    """
+    keep = [(n, i) for n, i in enumerate(items) if _eligible(i, shape, domain)]
+    keep.sort(key=lambda pair: _rank(pair[1], shape, domain), reverse=True)
+    if limit:
+        keep = keep[:limit]
+    keep.sort(key=lambda pair: pair[0])
+    return [i for _, i in keep]
+
+
+def summary(facts, shape, domain):
+    """Most specific summary available: 'shape.domain', then shape, then default."""
+    table = facts["summaries"]
+    for key in (f"{shape}.{domain}", shape, "default"):
+        if key in table:
+            return table[key]
+    return ""
+
+
+def skills(facts, shape, domain):
+    """Reorder groups and terms by relevance. Nothing is added or removed."""
+    priority = PRIORITY.get(shape, []) + PRIORITY.get(domain, [])
+
+    def term_key(term):
+        low = term.lower()
+        for i, p in enumerate(priority):
+            if p in low:
+                return i
+        return len(priority)
+
+    groups = []
+    for group in facts["skill_groups"]:
+        terms = sorted(group["terms"], key=term_key)
+        lead = min((term_key(t) for t in group["terms"]), default=len(priority))
+        groups.append((lead, {"name": group["name"], "terms": terms}))
+    groups.sort(key=lambda g: g[0])
+    return [g for _, g in groups]
+
+
+def _projects(facts, shape, domain, limit=3):
+    """Projects for this variant, never an empty section.
+
+    Every rails-domain variant filtered out both projects and the whole section
+    disappeared — betterment is fullstack.rails and its packet carried no projects
+    at all. Same principle as the roles: a section may reorder or trim, it must
+    not vanish.
+
+    The fallback is the highest-weighted project, so an over-narrow tag degrades
+    to showing the best work rather than to showing none. A resume with no
+    projects at all still renders no section: the guard fills an emptied section,
+    it does not invent one.
+
+    @return [list]
+    """
+    chosen = _select(facts["projects"], shape, domain, limit)
+    if chosen or not facts["projects"]:
+        return chosen
+    return [max(facts["projects"], key=lambda p: p.get("weight", 0))]
+
+
+def build(facts, shape, domain):
+    """Assemble one variant as structured content, ready to render."""
+    roles = []
+    for role in facts["roles"]:
+        # A role may cap itself lower than the global limit. The founder roles do,
+        # because every one of their bullets is tagged for any shape and any
+        # domain and so is never filtered — while the engineering bullets are
+        # narrowly tagged and mostly are. Without a cap the tagging discipline
+        # that keeps the engineering section targeted is exactly what lets the
+        # founder section outweigh it on an engineering resume.
+        #
+        # A cap, not a cut: the role keeps its strongest material and relevance
+        # still decides which bullets survive.
+        limit = min(BULLETS_PER_ROLE, role.get("max_bullets", BULLETS_PER_ROLE))
+        bullets = _select(role.get("bullets", []), shape, domain, limit)
+        # A role whose every bullet is tagged out of this variant still renders
+        # its heading and dates. Presence is the requirement; bullets are
+        # optional. Skipping it removed an employer from the work history.
+        roles.append({**role, "bullets": bullets})
+    return {
+        "me": facts["me"],
+        "variant": f"{shape}.{domain}",
+        "summary": summary(facts, shape, domain),
+        "skills": skills(facts, shape, domain),
+        "roles": roles,
+        "projects": _projects(facts, shape, domain),
+        "education": facts.get("education", {}),
+    }
+
+
+def _role_block(role):
+    """One role: heading, dates, optional platform context, then the bullets.
+
+    @param role [Hash] a built role
+    @return [Array<String>] markdown lines
+    """
+    dates = f"{role.get('start', '')} - {role.get('end', '')}".strip(" -")
+    block = [f"### {role['title']}, {role['company']}",
+             f"{dates}" + (f" | {role['location']}" if role.get("location") else ""), ""]
+    # Context, above the claims and never formatted as one. What the platform ran
+    # is not the same statement as what this person built, and a reader is
+    # entitled to tell them apart.
+    if role.get("stack"):
+        block += [role["stack"], ""]
+    return block + [f"- {b['text']}" for b in role["bullets"]] + [""]
+
+
+def render(doc):
+    """Parse-safe Markdown: single column, no tables, contact details in the body."""
+    me = doc["me"]
+    out = [f"# {me['name']}", ""]
+
+    contact = [me.get("location"), me.get("email"), me.get("phone"),
+               me.get("github"), me.get("linkedin"), me.get("site")]
+    out += [" | ".join(c for c in contact if c), ""]
+
+    if doc["summary"]:
+        out += ["## Summary", "", doc["summary"], ""]
+
+    if doc["skills"]:
+        out += ["## Skills", ""]
+        out += [f"{g['name']}: {', '.join(g['terms'])}" for g in doc["skills"]]
+        out += [""]
+
+    def _section(heading, roles):
+        if not roles:
+            return []
+        block = [f"## {heading}", ""]
+        for role in roles:
+            block += _role_block(role)
+        return block
+
+    # Two sections, each newest first. Employment leads because that is what a
+    # hiring reader scans for; the founder thread reads as one story below it.
+    def _recency(r):
+        return str(r.get("end") or "9999")
+    roles = doc["roles"]
+    out += _section("Experience", sorted(
+        [r for r in roles if r.get("kind", "employment") != "founder"], key=_recency, reverse=True))
+    out += _section("Founder & Operator", sorted(
+        [r for r in roles if r.get("kind") == "founder"], key=_recency, reverse=True))
+
+    if doc["projects"]:
+        out += ["## Projects", ""]
+        for p in doc["projects"]:
+            url = f" ({p['url']})" if p.get("url") else ""
+            # A project may be a bare name and link. The repo README is the
+            # description; a hardcoded separator left a dangling colon.
+            desc = f": {p['text']}" if p.get("text") else ""
+            out += [f"- {p['name']}{url}{desc}"]
+        out += [""]
+
+    edu = doc["education"]
+    if edu.get("show") and edu.get("lines"):
+        out += ["## Education", "", *edu["lines"], ""]
+
+    return "\n".join(out).rstrip() + "\n"
+
+
+def generate(shape, domain, facts=None):
+    return render(build(facts or load(), shape, domain))

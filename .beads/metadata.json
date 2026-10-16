@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "jobhunt",
+  "project_id": "49449261-f913-4abd-9c21-44982a2ac53c"
+}
