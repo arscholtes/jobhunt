@@ -15,6 +15,9 @@ daemon.*
 # Interactions log (runtime, not versioned)
 interactions.jsonl
 
+# Issue export: a local copy of the Dolt database, and this repo is public
+issues.jsonl
+
 # Push state (runtime, per-machine)
 push-state.json
 
