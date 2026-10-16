@@ -18,7 +18,7 @@ def fetch(token):
     payload = get_json(API.format(token=token))
     rows = []
     for j in payload.get("jobs", []):
-        loc = (j.get("location") or {}).get("name", "")
+        loc = (j.get("location") or {}).get("name") or ""
         rows.append({
             "id": f"greenhouse:{token}:{j['id']}",
             "source": "greenhouse",
