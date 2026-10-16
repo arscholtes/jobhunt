@@ -7,6 +7,7 @@ hardcoded ": {text}", so an entry with no text rendered a dangling colon.
 import unittest
 
 from jobhunt import resume
+from tests.resumes import owners_resume
 from tests.test_projects_present import DOMAINS, SHAPES
 
 
@@ -38,6 +39,7 @@ class LinkOnlyProject(unittest.TestCase):
         self.assertNotIn("FPS ()", resume.render(_doc(url="")))
 
 
+@owners_resume
 class FpsInEveryVariant(unittest.TestCase):
     """ANY/ANY tags: FPS is the strongest AI-domain signal, so it must not filter out."""
 
