@@ -63,8 +63,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # bash -n stands alone so bash -e stops at the first script that fails.
+      # Inside an && list its failure is exempt from -e and the loop carries on.
       - name: Check the shell jobhunt parse
         run: |
-          for f in jobhunt/fps jobhunt/fps-tab install.sh; do
-            bash -n "$f" && echo "ok  $f"
+          for f in TESTME.sh .beads/hooks/*; do
+            bash -n "$f"
+            echo "ok  $f"
           done

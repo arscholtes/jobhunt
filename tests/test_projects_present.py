@@ -23,6 +23,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from jobhunt import resume
+from tests.resumes import CANDIDATE, every_resume, owners_resume
 
 SHAPES = ("backend", "fullstack", "platform", "fde", "generic")
 DOMAINS = ("ai", "devtools", "rails", "general")
@@ -30,16 +31,19 @@ DOMAINS = ("ai", "devtools", "rails", "general")
 
 class ProjectsPresentTests(unittest.TestCase):
     def test_every_variant_renders_at_least_one_project(self):
-        facts = resume.load()
-        for shape in SHAPES:
-            for domain in DOMAINS:
-                doc = resume.build(facts, shape, domain)
-                self.assertTrue(doc["projects"], f"{shape}.{domain} renders no projects")
+        for source, facts in every_resume():
+            with self.subTest(source=source):
+                for shape in SHAPES:
+                    for domain in DOMAINS:
+                        doc = resume.build(facts, shape, domain)
+                        self.assertTrue(doc["projects"], f"{shape}.{domain} renders no projects")
 
     def test_a_rails_variant_renders_projects(self):
-        facts = resume.load()
-        self.assertTrue(resume.build(facts, "fullstack", "rails")["projects"])
+        for source, facts in every_resume():
+            with self.subTest(source=source):
+                self.assertTrue(resume.build(facts, "fullstack", "rails")["projects"])
 
+    @owners_resume
     def test_the_agent_workflow_reaches_a_fullstack_variant(self):
         """The agent-workflow project is FPS, and it must still land here.
 
@@ -54,7 +58,7 @@ class ProjectsPresentTests(unittest.TestCase):
         self.assertTrue(fps["text"], "FPS renders with no description, so nothing can match it")
 
     def test_the_fallback_picks_the_highest_weighted_project(self):
-        facts = {**resume.load(), "projects": [
+        facts = {**resume.load(CANDIDATE), "projects": [
             {"name": "Low", "text": "x", "weight": 3, "shapes": ["nothing"]},
             {"name": "High", "text": "y", "weight": 9, "shapes": ["nothing"]},
         ]}
@@ -63,20 +67,22 @@ class ProjectsPresentTests(unittest.TestCase):
 
     def test_a_resume_with_no_projects_at_all_renders_no_section(self):
         # The fallback fills an emptied section; it does not invent one.
-        facts = {**resume.load(), "projects": []}
+        facts = {**resume.load(CANDIDATE), "projects": []}
         self.assertEqual(resume.build(facts, "fullstack", "rails")["projects"], [])
 
     def test_the_section_header_never_appears_with_nothing_under_it(self):
-        facts = resume.load()
-        for shape in SHAPES:
-            for domain in DOMAINS:
-                text = resume.render(resume.build(facts, shape, domain))
-                if "## Projects" in text:
-                    after = text.split("## Projects", 1)[1]
-                    body = after.split("\n## ", 1)[0].strip()
-                    self.assertTrue(body, f"{shape}.{domain} has an empty Projects header")
+        for source, facts in every_resume():
+            with self.subTest(source=source):
+                for shape in SHAPES:
+                    for domain in DOMAINS:
+                        text = resume.render(resume.build(facts, shape, domain))
+                        if "## Projects" in text:
+                            after = text.split("## Projects", 1)[1]
+                            body = after.split("\n## ", 1)[0].strip()
+                            self.assertTrue(body, f"{shape}.{domain} has an empty Projects header")
 
 
+@owners_resume
 class NoRewordingTests(unittest.TestCase):
     """The guard is against REWORDING his prose, not against a project having none.
 
