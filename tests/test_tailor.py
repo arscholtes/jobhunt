@@ -197,6 +197,14 @@ class GapTests(unittest.TestCase):
         matched, gaps = tailor.evidence([], self.FACTS)
         self.assertEqual((matched, gaps), ([], []))
 
+    def test_a_disposition_is_a_soft_match_not_a_gap(self):
+        # Nothing on a resume can be checked against "strong communication", so
+        # listing it as unmet would leave nothing to act on.
+        matched, gaps = tailor.evidence(["Strong communication skills"], self.FACTS)
+        self.assertEqual(gaps, [])
+        self.assertEqual(matched, [{"requirement": "Strong communication skills",
+                                    "evidence": [], "soft": True}])
+
 
 class BudgetTests(unittest.TestCase):
     """A brief that reprints the whole resume has removed no tedium.
