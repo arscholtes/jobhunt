@@ -16,6 +16,7 @@ Two constraints carried in from what already exists and must not regress:
 
 import sys
 import unittest
+from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -204,6 +205,36 @@ class GapTests(unittest.TestCase):
         self.assertEqual(gaps, [])
         self.assertEqual(matched, [{"requirement": "Strong communication skills",
                                     "evidence": [], "soft": True}])
+
+
+class YearsFromTests(unittest.TestCase):
+    """Experience is the span the dated roles cover, not the sum of their lengths."""
+
+    TODAY = date(2026, 10, 1)
+
+    def years(self, *spans):
+        roles = [{"company": "x", "start": start, "end": end} for start, end in spans]
+        return tailor.years_from({"roles": roles}, today=self.TODAY)
+
+    def test_overlapping_roles_are_merged_not_summed(self):
+        # A side company run alongside a job is not twice the experience.
+        self.assertEqual(self.years(("2018-01", "2020-01"), ("2019-01", "2021-01")), 3.0)
+
+    def test_separate_roles_are_added(self):
+        self.assertEqual(self.years(("2016-01", "2017-01"), ("2018-01", "2020-01")), 3.0)
+
+    def test_a_present_role_runs_to_today(self):
+        self.assertEqual(self.years(("2024-10", "present")), 2.0)
+
+    def test_a_role_with_no_end_runs_to_today(self):
+        facts = {"roles": [{"company": "x", "start": "2025-10"}]}
+        self.assertEqual(tailor.years_from(facts, today=self.TODAY), 1.0)
+
+    def test_an_unparseable_date_skips_that_role_and_keeps_the_rest(self):
+        self.assertEqual(self.years(("Spring 2019", "2020-01"), ("2022-10", "present")), 4.0)
+
+    def test_no_dated_role_gives_none_rather_than_zero(self):
+        self.assertIsNone(tailor.years_from({"roles": [{"company": "x"}]}, today=self.TODAY))
 
 
 class BudgetTests(unittest.TestCase):
