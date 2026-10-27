@@ -8,6 +8,8 @@ Culture fit is not scored here — that needs research the posting cannot supply
 """
 import re
 
+from . import location as location_mod
+
 WEIGHTS = {"title": 30, "skills": 40, "interests": 15, "location": 15}
 
 
@@ -15,8 +17,54 @@ def _terms(text):
     return " " + re.sub(r"[^a-z0-9+#. -]+", " ", (text or "").lower()) + " "
 
 
+def _norm(term):
+    """Normalise a pattern the same way the haystack is normalised.
+
+    _terms() strips every character outside [a-z0-9+#. -], so a rule written
+    naturally as "on-call 24/7" would otherwise be matched against text reading
+    "on-call 24 7" and could never fire. A rule nobody can tell is broken is worse
+    than no rule at all.
+    """
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9+#. -]+", " ", (term or "").lower())).strip()
+
+
 def _hit(term, haystack):
-    return re.search(r"(?<![a-z0-9])" + re.escape(term.lower()) + r"(?![a-z0-9])", haystack)
+    return re.search(r"(?<![a-z0-9])" + re.escape(_norm(term)) + r"(?![a-z0-9])", haystack)
+
+
+def _hit_prefix(term, haystack):
+    """Like _hit but allows a suffix: 'intern' catches 'internship'.
+
+    Only used for title exclusions, where 'intern' should disqualify
+    'Software Engineer Internship' — a strict boundary match let those through.
+    """
+    return re.search(r"(?<![a-z0-9])" + re.escape(_norm(term)), haystack)
+
+
+def strip_boilerplate(description, boilerplate, suffix=""):
+    """Remove a company's repeated preamble from one posting's description.
+
+    Text identical across every posting a company makes is marketing, not role
+    content — but every technology it names is read as a skill the role wants. A
+    company that lists its whole stack on all 219 of its postings hands each of
+    them a perfect skills score, which ranks its field roles above its engineering
+    ones. Stripping the shared prefix is what makes the remaining score about the
+    role.
+
+    @param description [String, nil] the posting body
+    Both ends are stripped. Across the stored postings the shared tail is usually
+    the larger half — benefits, EEO statements and stack blurbs sit at the end —
+    so removing only the preamble leaves most of the distortion behind.
+
+    @param boilerplate [String, nil] the company's shared prefix, from culture.boilerplate
+    @param suffix [String, nil] the shared tail, from culture.boilerplate_suffix
+    @return [String] the role-specific remainder
+    """
+    text = description or ""
+    start = len(boilerplate) if boilerplate and text.startswith(boilerplate) else 0
+    end = len(text) - len(suffix) if suffix and text.endswith(suffix) else len(text)
+    # A posting that is nothing but boilerplate would otherwise strip past itself.
+    return text[start:end] if start < end else ""
 
 
 def dealbreaker(job, profile):
@@ -27,15 +75,30 @@ def dealbreaker(job, profile):
             return f"{d['pattern']} ({d.get('why', 'excluded')})"
     title = _terms(job["title"])
     for bad in profile["search"]["exclude_titles"]:
-        if _hit(bad, title):
+        if _hit_prefix(bad, title):
             return f"excluded title: {bad}"
     return None
 
 
-def score(job, profile):
-    """Return (total 0-100, breakdown dict). Higher is a better fit."""
+def score(job, profile, boilerplate="", suffix=""):
+    """Return (total, breakdown dict). Higher is a better fit.
+
+    @param boilerplate [String] the company's shared description prefix
+    @param suffix [String] the company's shared description tail — usually the
+      larger half; both are stripped before terms are read so a role is scored
+      on its own content
+
+    The base components sum to 100 by construction, but the total is deliberately
+    not capped there: interview and comp signals are added on top, and a posting
+    that is both a perfect content match and a good process match should be able
+    to say so rather than tie with every other perfect match at the ceiling.
+
+    The floor stays at 0 because -1 is the disqualified sentinel.
+    """
     title = _terms(job["title"])
-    body = _terms(job["title"] + " " + (job.get("description") or ""))
+    # The title is always role-specific, so it is never stripped — only the body is.
+    role_text = strip_boilerplate(job.get("description"), boilerplate, suffix)
+    body = _terms(job["title"] + " " + role_text)
     search = profile["search"]
     out = {}
 
@@ -62,14 +125,22 @@ def score(job, profile):
         out["interests"] = 0
 
     loc = _terms(job.get("location") or "")
-    if job.get("remote"):
-        out["location"] = WEIGHTS["location"]
-    elif any(_hit(l, loc) for l in search["locations"]):
+    where = location_mod.classify(job.get("location"))
+    if where == "international":
+        # A domestic move is a tradeoff against comp. This one needs a visa, and
+        # the two are different in kind — scoring them the same put eleven of the
+        # first twenty digest slots in Dublin, London and São Paulo. Not excluded:
+        # some of these companies sponsor, and that is his call.
+        intl = search.get("international_weight", 0.05)
+        out["location"] = round(WEIGHTS["location"] * intl, 1)
+    elif job.get("remote") or any(_hit(term, loc) for term in search["locations"]):
         out["location"] = WEIGHTS["location"]
     elif search["remote_only"]:
         out["location"] = 0
     else:
-        out["location"] = WEIGHTS["location"] * 0.3
+        # Elsewhere-onsite is a preference, never a filter: relocation is a
+        # tradeoff against comp, not a hard no. Tune with search.elsewhere_weight.
+        out["location"] = round(WEIGHTS["location"] * search.get("elsewhere_weight", 0.3), 1)
 
     total = round(sum(v for k, v in out.items() if isinstance(v, (int, float))), 1)
-    return min(total, 100.0), out
+    return max(total, 0.0), out

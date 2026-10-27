@@ -1,5 +1,7 @@
 """Greenhouse public job board API."""
+import html as htmlmod
 import re
+
 from ._http import get_json
 
 API = "https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true"
@@ -9,7 +11,6 @@ TAG = re.compile(r"<[^>]+>")
 def _text(html):
     if not html:
         return ""
-    import html as htmlmod
     return htmlmod.unescape(TAG.sub(" ", html)).replace("\xa0", " ")
 
 
@@ -17,7 +18,7 @@ def fetch(token):
     payload = get_json(API.format(token=token))
     rows = []
     for j in payload.get("jobs", []):
-        loc = (j.get("location") or {}).get("name", "")
+        loc = (j.get("location") or {}).get("name") or ""
         rows.append({
             "id": f"greenhouse:{token}:{j['id']}",
             "source": "greenhouse",
