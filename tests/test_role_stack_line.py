@@ -11,6 +11,7 @@ import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 from jobhunt import resume
+from tests.resumes import CANDIDATE
 
 ROLE = {
     "company": "Acme", "title": "Software Engineer", "kind": "employment",
@@ -22,7 +23,7 @@ ROLE = {
 
 class RoleStackLine(unittest.TestCase):
     def _render(self, role):
-        facts = {**resume.load(), "roles": [role]}
+        facts = {**resume.load(CANDIDATE), "roles": [role]}
         return resume.render(resume.build(facts, "backend", "general"))
 
     def test_the_stack_line_renders_under_the_dates(self):

@@ -1,0 +1,172 @@
+# A fictional candidate, so the resume tests run where the owner's resume.toml
+# does not exist, CI included. Every name and claim here is invented.
+#
+# The shape is what the tests need, not realism. Each point below is what lets a
+# rule fail when the code breaks it:
+# - Contoso's bullets are all tagged out of fullstack and platform, so a build that
+#   drops a role with no bullets loses an employer there.
+# - Both founder roles are untagged and capped. Without max_bullets they outweigh
+#   the engineering roles on a fullstack variant.
+# - Neither project is tagged for rails, so a rails variant has projects only
+#   through the fallback.
+
+[me]
+name     = "Test Candidate"
+email    = "candidate@example.com"
+phone    = ""
+location = "Remote"
+github   = ""
+linkedin = ""
+site     = ""
+
+[summaries]
+default   = "Software engineer building multi-tenant web systems."
+backend   = "Backend engineer focused on data models, background jobs and integrations."
+fullstack = "Full-stack engineer shipping features from schema to page."
+
+[[skill_groups]]
+name  = "Languages"
+terms = ["Ruby", "Python", "SQL"]
+
+[[skill_groups]]
+name  = "Data"
+terms = ["PostgreSQL", "Redis", "Sidekiq"]
+
+[[roles]]
+company  = "Northwind Traders"
+title    = "Senior Software Engineer"
+kind     = "employment"
+start    = "2023-04"
+end      = "present"
+location = "Remote"
+
+  [[roles.bullets]]
+  text   = "Moved invoice generation from a nightly batch to an event per order, cutting month-end close from three days to one."
+  weight = 9
+
+  [[roles.bullets]]
+  text   = "Wrote the tenant-scoping layer every query passes through, and the lint rule that rejects a query that skips it."
+  weight = 8
+
+  [[roles.bullets]]
+  text   = "Turned the five most common support tickets into self-serve fixes."
+  weight = 8
+
+  [[roles.bullets]]
+  text   = "Split the job queue by tenant so one large import no longer delayed everyone else's."
+  shapes = ["backend", "platform"]
+  weight = 7
+
+  [[roles.bullets]]
+  text   = "Rebuilt the order screen as server-rendered pages with live updates."
+  shapes = ["fullstack"]
+  weight = 7
+
+  [[roles.bullets]]
+  text   = "Added retrieval over past orders to the support assistant."
+  domains = ["ai"]
+  weight = 6
+
+[[roles]]
+company  = "Contoso Pharmacy"
+title    = "Software Engineer"
+kind     = "employment"
+start    = "2021-06"
+end      = "2023-03"
+location = "Remote"
+
+  [[roles.bullets]]
+  text   = "Built the prescription-transfer integration with four pharmacy systems."
+  shapes = ["backend", "fde", "generic"]
+  weight = 7
+
+  [[roles.bullets]]
+  text   = "Ran the on-call rotation for the integrations team."
+  shapes = ["backend", "fde", "generic"]
+  weight = 6
+
+[[roles]]
+company  = "Fabrikam"
+title    = "Software Engineer"
+kind     = "employment"
+start    = "2019-01"
+end      = "2021-05"
+location = "Remote"
+
+  [[roles.bullets]]
+  text   = "Replaced the hand-run deploy with a pipeline that ran the tests first."
+  weight = 6
+
+  [[roles.bullets]]
+  text   = "Wrote the reporting queries the finance team used for quarter close."
+  weight = 5
+
+[[roles]]
+company     = "Tailspin Toys"
+title       = "Founder"
+kind        = "founder"
+start       = "2017-03"
+end         = "2018-12"
+max_bullets = 2
+
+  [[roles.bullets]]
+  text   = "Founded a toy subscription service and ran it to 400 paying households."
+  weight = 9
+
+  [[roles.bullets]]
+  text   = "Built the storefront and the billing integration alone."
+  weight = 8
+
+  [[roles.bullets]]
+  text   = "Negotiated supply with three manufacturers."
+  weight = 7
+
+  [[roles.bullets]]
+  text   = "Hired and managed two part-time packers."
+  weight = 7
+
+  [[roles.bullets]]
+  text   = "Wound the company down and refunded every open subscription."
+  weight = 7
+
+[[roles]]
+company     = "Adventure Works"
+title       = "Co-founder"
+kind        = "founder"
+start       = "2015-01"
+end         = "2017-02"
+max_bullets = 2
+
+  [[roles.bullets]]
+  text   = "Co-founded a guided-tour booking business."
+  weight = 8
+
+  [[roles.bullets]]
+  text   = "Built the booking site and the guide scheduling tool."
+  weight = 8
+
+  [[roles.bullets]]
+  text   = "Grew bookings through partnerships with two hotels."
+  weight = 7
+
+  [[roles.bullets]]
+  text   = "Sold the business to a regional tour operator."
+  weight = 7
+
+[[projects]]
+name    = "Ledger"
+url     = "https://example.com/ledger"
+text    = "A double-entry bookkeeping library with property-based tests."
+domains = ["ai", "devtools", "general"]
+weight  = 8
+
+[[projects]]
+name    = "Gauge"
+url     = "https://example.com/gauge"
+text    = ""
+domains = ["ai"]
+weight  = 6
+
+[education]
+show  = false
+lines = []

@@ -22,6 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from jobhunt import resume, tailor
+from tests.resumes import every_resume, owners_resume
 
 FACTS = {
     "me": {"name": "A"}, "summaries": {"default": "s"}, "skill_groups": [],
@@ -105,13 +106,14 @@ class VariantTests(unittest.TestCase):
         self.assertIn("Tagged Out", {r["company"] for r in doc["roles"]})
 
     def test_every_real_variant_carries_every_real_employer(self):
-        real = resume.load()
-        expected = {r["company"] for r in real["roles"]}
-        for shape in ("backend", "fullstack", "platform", "fde", "generic"):
-            for domain in ("ai", "devtools", "rails", "general"):
-                doc = resume.build(real, shape, domain)
-                self.assertEqual({r["company"] for r in doc["roles"]}, expected,
-                                 f"{shape}.{domain} dropped an employer")
+        for source, facts in every_resume():
+            with self.subTest(source=source):
+                expected = {r["company"] for r in facts["roles"]}
+                for shape in ("backend", "fullstack", "platform", "fde", "generic"):
+                    for domain in ("ai", "devtools", "rails", "general"):
+                        doc = resume.build(facts, shape, domain)
+                        self.assertEqual({r["company"] for r in doc["roles"]}, expected,
+                                         f"{shape}.{domain} dropped an employer")
 
 
 if __name__ == "__main__":
@@ -142,6 +144,7 @@ class PageBudgetTests(unittest.TestCase):
                 self.assertIn(company, text, f"{md.stem} omits {company}")
 
 
+@owners_resume
 class DemandwellBulletsTests(unittest.TestCase):
     """Presence was the floor. Demandwell is meant to carry real bullets.
 

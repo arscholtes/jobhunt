@@ -22,6 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from jobhunt import resume
+from tests.resumes import every_resume, owners_resume
 
 SHAPES = ("backend", "fullstack", "platform", "fde", "generic")
 DOMAINS = ("ai", "devtools", "rails", "general")
@@ -36,13 +37,15 @@ def split(facts, doc):
 
 class ProportionTests(unittest.TestCase):
     def test_engineering_outweighs_founder_in_every_variant(self):
-        facts = resume.load()
-        for shape in SHAPES:
-            for domain in DOMAINS:
-                eng, founder = split(facts, resume.build(facts, shape, domain))
-                self.assertGreater(eng, founder,
-                                   f"{shape}.{domain}: {eng} engineering vs {founder} founder")
+        for source, facts in every_resume():
+            with self.subTest(source=source):
+                for shape in SHAPES:
+                    for domain in DOMAINS:
+                        eng, founder = split(facts, resume.build(facts, shape, domain))
+                        self.assertGreater(eng, founder,
+                                           f"{shape}.{domain}: {eng} engineering vs {founder} founder")
 
+    @owners_resume
     def test_the_current_role_carries_real_weight_everywhere(self):
         facts = resume.load()
         for shape in SHAPES:
@@ -55,21 +58,23 @@ class ProportionTests(unittest.TestCase):
 
     def test_a_cap_is_a_cap_not_a_cut(self):
         # A capped role keeps its strongest material; it does not disappear.
-        facts = resume.load()
-        for shape in SHAPES:
-            doc = resume.build(facts, shape, "general")
-            for role in doc["roles"]:
-                if (r := next(x for x in facts["roles"] if x["company"] == role["company"])).get("max_bullets"):
-                    self.assertLessEqual(len(role["bullets"]), r["max_bullets"])
-                    self.assertTrue(role["bullets"] or not r["bullets"])
+        for source, facts in every_resume():
+            with self.subTest(source=source):
+                for shape in SHAPES:
+                    doc = resume.build(facts, shape, "general")
+                    for role in doc["roles"]:
+                        if (r := next(x for x in facts["roles"] if x["company"] == role["company"])).get("max_bullets"):
+                            self.assertLessEqual(len(role["bullets"]), r["max_bullets"])
+                            self.assertTrue(role["bullets"] or not r["bullets"])
 
     def test_every_employer_is_still_present(self):
-        facts = resume.load()
-        expected = {r["company"] for r in facts["roles"]}
-        for shape in SHAPES:
-            for domain in DOMAINS:
-                got = {r["company"] for r in resume.build(facts, shape, domain)["roles"]}
-                self.assertEqual(got, expected, f"{shape}.{domain} dropped an employer")
+        for source, facts in every_resume():
+            with self.subTest(source=source):
+                expected = {r["company"] for r in facts["roles"]}
+                for shape in SHAPES:
+                    for domain in DOMAINS:
+                        got = {r["company"] for r in resume.build(facts, shape, domain)["roles"]}
+                        self.assertEqual(got, expected, f"{shape}.{domain} dropped an employer")
 
     def test_the_cap_lives_in_the_data_not_the_code(self):
         src = (Path(__file__).resolve().parent.parent / "jobhunt" / "resume.py").read_text()
@@ -77,6 +82,7 @@ class ProportionTests(unittest.TestCase):
             self.assertNotIn(name, src, f"{name} is hardcoded in resume.py")
 
 
+@owners_resume
 class NoRewordingTests(unittest.TestCase):
     """Tags may move. Claims may not."""
 

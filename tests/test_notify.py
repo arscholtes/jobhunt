@@ -2,12 +2,18 @@
 
 import sqlite3
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from jobhunt import notify, store
+
+MAIL = {"to": "candidate@example.com", "from": "candidate@example.com",
+        "username": "smtp-user@example.com", "password": "app-specific-password",
+        "host": "smtp.example.com", "port": 2525}
 
 
 class DigestTestCase(unittest.TestCase):
@@ -94,6 +100,88 @@ class TableTests(DigestTestCase):
         self.add("a", 80, title="Forward Deployed Engineer - EMEA", description="EMEA only.")
         html = notify._table(notify.unsent(self.con, min_score=60))
         self.assertIn("Forward Deployed Engineer", html)
+
+
+class SendTests(DigestTestCase):
+    """The SMTP conversation, with smtplib stubbed so nothing leaves the machine."""
+
+    def send(self, rows, cfg):
+        with mock.patch.object(notify.smtplib, "SMTP") as smtp:
+            sent = notify.send(rows, cfg=cfg)
+        return sent, smtp
+
+    def two_postings(self):
+        self.add("a", 91.4, company="Contoso")
+        self.add("b", 72, company="Fabrikam")
+        return notify.unsent(self.con, min_score=60)
+
+    def test_the_connection_is_encrypted_before_the_password_is_sent(self):
+        _, smtp = self.send(self.two_postings(), MAIL)
+        session = smtp.return_value.__enter__.return_value
+        self.assertEqual([c[0] for c in session.method_calls], ["starttls", "login", "send_message"])
+
+    def test_the_server_and_credentials_come_from_the_config(self):
+        _, smtp = self.send(self.two_postings(), MAIL)
+        smtp.assert_called_once_with("smtp.example.com", 2525, timeout=30)
+        smtp.return_value.__enter__.return_value.login.assert_called_once_with(
+            "smtp-user@example.com", "app-specific-password")
+
+    def test_the_subject_names_the_count_and_the_top_posting(self):
+        _, smtp = self.send(self.two_postings(), MAIL)
+        msg = smtp.return_value.__enter__.return_value.send_message.call_args.args[0]
+        self.assertEqual(msg["Subject"], "2 new · top 91 Contoso")
+
+    def test_nothing_to_send_opens_no_connection(self):
+        sent, smtp = self.send([], MAIL)
+        self.assertFalse(sent)
+        smtp.assert_not_called()
+
+    def test_an_unconfigured_send_fails_before_connecting(self):
+        rows = self.two_postings()
+        with tempfile.TemporaryDirectory() as tmp, \
+             mock.patch.object(notify, "CONFIG", Path(tmp) / "absent.toml"), \
+             mock.patch.object(notify.smtplib, "SMTP") as smtp, \
+             self.assertRaises(notify.MailNotConfigured):
+            notify.send(rows)
+        smtp.assert_not_called()
+
+
+class ConfigTests(unittest.TestCase):
+    """The mail config, read from a temporary path so a real one is never touched."""
+
+    FULL = ('to = "candidate@example.com"\nfrom = "candidate@example.com"\n'
+            'username = "candidate@example.com"\npassword = "app-specific-password"\n')
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.path = Path(self._tmp.name) / "mail.toml"
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def load(self, text=None):
+        if text is not None:
+            self.path.write_text(text)
+        with mock.patch.object(notify, "CONFIG", self.path):
+            return notify.config()
+
+    def test_no_config_file_is_mail_not_configured(self):
+        with self.assertRaises(notify.MailNotConfigured):
+            self.load()
+
+    def test_every_missing_key_is_named(self):
+        with self.assertRaises(notify.MailNotConfigured) as caught:
+            self.load('to = "candidate@example.com"\n')
+        self.assertIn("from, username, password", str(caught.exception))
+
+    def test_an_empty_password_counts_as_missing(self):
+        with self.assertRaises(notify.MailNotConfigured) as caught:
+            self.load(self.FULL.replace('"app-specific-password"', '""'))
+        self.assertIn("password", str(caught.exception))
+
+    def test_host_and_port_default_to_icloud_submission(self):
+        cfg = self.load(self.FULL)
+        self.assertEqual((cfg["host"], cfg["port"]), ("smtp.mail.me.com", 587))
 
 
 if __name__ == "__main__":
