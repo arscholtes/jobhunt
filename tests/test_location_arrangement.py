@@ -88,6 +88,40 @@ class ArrangementTests(unittest.TestCase):
         self.assertEqual(location.arrangement("Argentina Remote"), "remote")
 
 
+class ProseArrangementTests(unittest.TestCase):
+    """A location field and a job description are different kinds of text.
+
+    arrangement() reads a FIELD, where "distributed" can only describe the
+    workforce. A description is prose, where it usually describes the system.
+    Measured on the 41 live IndyHackers postings: seven say "distributed logs",
+    "distributed resources" or "distributed systems", none of them remote, and
+    one says outright that the role is "not hybrid or remote".
+    """
+
+    def test_distributed_logs_describe_a_system_not_a_workforce(self):
+        self.assertFalse(location.remote_in_prose("Resolve issues by reading distributed logs."))
+
+    def test_distributed_resources_on_a_power_grid_are_not_a_workplace(self):
+        self.assertFalse(location.remote_in_prose("Digitalizing homes and distributed resources."))
+
+    def test_a_distributed_team_is_a_workforce(self):
+        self.assertTrue(location.remote_in_prose("We are a fully distributed team."))
+
+    def test_plain_remote_is_still_remote(self):
+        self.assertTrue(location.remote_in_prose("The setup: 100% remote, with an office."))
+
+    def test_a_role_that_denies_being_remote_is_not_remote(self):
+        self.assertFalse(location.remote_in_prose("Onsite in Indianapolis, not hybrid or remote."))
+
+    def test_a_denial_does_not_silence_a_later_sentence(self):
+        # The denial governs its own clause, not the whole posting.
+        self.assertTrue(location.remote_in_prose(
+            "Our support desk is not remote. This engineering role is 100% remote."))
+
+    def test_prose_stating_nothing_is_not_remote(self):
+        self.assertFalse(location.remote_in_prose("Senior Rails engineer for a growing team."))
+
+
 class FlagMappingTests(unittest.TestCase):
     """A wrong flag that reads as reassurance is worse than no flag."""
 

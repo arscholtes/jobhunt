@@ -88,3 +88,10 @@ token  = "ramp"
 [[boards]]
 source = "lever"
 token  = "spotify"
+
+# A local board, where the token names a collection rather than a company. The
+# 34 ATS feeds above are national: of 5,009 postings they reached exactly one in
+# Indiana, and no reweighting can promote a local role that was never fetched.
+[[boards]]
+source = "indyhackers"
+token  = "jobs"

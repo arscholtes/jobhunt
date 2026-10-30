@@ -82,12 +82,43 @@ MULTIWORD_STATES = tuple(sorted((c for c in US_STATES if " " in c), key=len, rev
 def arrangement(text):
     """How the job is worked, independent of where it is.
 
+    Reads a location FIELD. For a job description, see remote_in_prose: the two
+    kinds of text carry the same words with different meanings.
+
     @return [String, nil] remote | hybrid | onsite
     """
     for name, pattern in ARRANGEMENTS:
         if pattern.search(text or ""):
             return name
     return None
+
+
+# In a location field "distributed" can only describe the workforce. In prose it
+# usually describes the system — distributed logs, distributed resources,
+# distributed systems — so here it counts only when it describes people.
+PROSE_REMOTE = re.compile(
+    r"\b(remote|wfh|work from home)\b"
+    r"|\bdistributed\s+(team|teams|company|workforce|organisation|organization|staff)\b", re.I)
+# "Onsite in Indianapolis, not hybrid or remote" states the opposite of the word
+# it contains. A denial governs its own clause, never the whole posting.
+PROSE_DENIAL = re.compile(r"\b(not|no|never)\b[^.]{0,40}?\b(remote|work from home)\b", re.I)
+SENTENCE = re.compile(r"(?<=[.!?])\s+")
+
+
+def remote_in_prose(text):
+    """Whether a job DESCRIPTION says the work is remote.
+
+    Each sentence is a separate claim: a posting may deny remote work for one
+    team and offer it for another, and the denial belongs to the sentence
+    carrying it.
+
+    @param text [String, nil] prose, not a location field
+    @return [Boolean]
+    """
+    for sentence in SENTENCE.split(text or ""):
+        if PROSE_REMOTE.search(sentence) and not PROSE_DENIAL.search(sentence):
+            return True
+    return False
 
 
 def _words(chunk):

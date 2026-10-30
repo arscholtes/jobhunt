@@ -16,7 +16,7 @@ $PY -m unittest discover -s tests 2>&1 | tail -4
 hr "2. The gate — must say PASS before anything goes up"
 ~/.claude/skills/qa-gate/qa-gate.sh . 2>&1 | tail -9
 
-hr "3. Two new boards registered (want 5 adapters)"
+hr "3. Boards registered (want 6 adapters, one of them local)"
 $PY -c "from jobhunt.sources import ADAPTERS; print('  ', sorted(ADAPTERS))"
 
 hr "4. Title exclusions catch suffixes ('intern' -> 'Internship')"
