@@ -209,3 +209,29 @@ class BoilerplateStrippingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HomeAreaScoring(unittest.TestCase):
+    """A listed city elsewhere can tie remote; it must not tie the place the person lives."""
+
+    def prof(self, **search):
+        p = profile()
+        p["search"] = dict(p["search"], locations=["remote", "Indianapolis", "Seattle"], **search)
+        return p
+
+    def test_a_home_posting_outranks_the_same_role_in_a_listed_city_elsewhere(self):
+        p = self.prof(home=["Indianapolis", "Indiana"])
+        home, _ = score_mod.score(job(location="Indianapolis, Indiana", remote=0), p)
+        away, _ = score_mod.score(job(location="Seattle, WA", remote=0), p)
+        self.assertGreater(home, away)
+
+    def test_the_bonus_is_its_own_line_in_the_breakdown(self):
+        _, parts = score_mod.score(job(location="Indianapolis, Indiana", remote=0),
+                                   self.prof(home=["Indianapolis"], home_weight=0.5))
+        self.assertEqual(score_mod.WEIGHTS["location"] * 0.5, parts["home"])
+
+    def test_without_a_home_the_score_is_what_it_was(self):
+        p = self.prof()
+        total, parts = score_mod.score(job(location="Indianapolis, Indiana", remote=0), p)
+        self.assertNotIn("home", parts)
+        self.assertEqual(total, score_mod.score(job(location="Seattle, WA", remote=0), p)[0])
