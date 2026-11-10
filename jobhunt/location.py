@@ -178,6 +178,23 @@ def classify(text):
     return "unknown"
 
 
+def in_home_area(text, home):
+    """Whether a posting's location field names the place the person lives.
+
+    Each office in a list is its own claim, as in classify(): one home office among
+    several is enough. Words match whole, so "Indiana" never matches inside
+    "Indianapolis".
+
+    @param text [String, nil] the posting's location field
+    @param home [Array<String>] places that count as home, from profile search.home
+    @return [Boolean]
+    """
+    terms = [w for w in (_words(h) for h in home) if w]
+    if not terms:
+        return False
+    return any(_has(_words(chunk), terms) for chunk in SPLIT.split(text or ""))
+
+
 def country(text):
     """@return [String, nil] the foreign country named, for a readable flag."""
     if not text:

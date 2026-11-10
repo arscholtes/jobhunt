@@ -22,6 +22,10 @@ exclude_titles = [
 # and a posting that merely mentions a new-grad programme in its body is untouched.
 remote_only    = false
 locations      = ["Indianapolis", "Indiana", "Remote"]
+# Where you live. A posting there earns home_weight x the location points on top of
+# them, so it outranks the same role in any other listed place or remote.
+home           = ["Indianapolis", "Indiana"]
+home_weight    = 1.0
 min_score      = 45          # hide anything below this in `jobhunt list`
 
 # ── what you are good at ───────────────────────────────────────────────

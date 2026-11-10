@@ -142,5 +142,13 @@ def score(job, profile, boilerplate="", suffix=""):
         # tradeoff against comp, not a hard no. Tune with search.elsewhere_weight.
         out["location"] = round(WEIGHTS["location"] * search.get("elsewhere_weight", 0.3), 1)
 
+    # Every listed location and every remote role collects full location points, so
+    # on location alone the place the person lives tied a city they would have to
+    # move to. Home is reachable without a move, so it is added on top rather than
+    # taken from anything else. Tune with search.home_weight.
+    home = search.get("home", [])
+    if home and location_mod.in_home_area(job.get("location"), home):
+        out["home"] = round(WEIGHTS["location"] * search.get("home_weight", 1.0), 1)
+
     total = round(sum(v for k, v in out.items() if isinstance(v, (int, float))), 1)
     return max(total, 0.0), out

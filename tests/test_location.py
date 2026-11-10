@@ -120,3 +120,30 @@ class ScoringTests(unittest.TestCase):
 
     def test_a_domestic_posting_carries_no_international_flag(self):
         self.assertNotIn("international", gate.flag_labels(self.job("Denver, Colorado")))
+
+
+class HomeAreaTests(unittest.TestCase):
+    """The place the person lives, as the profile names it, read from the location field."""
+
+    HOME = ("Indianapolis", "Indiana")
+
+    def test_the_home_city_is_home(self):
+        self.assertTrue(location.in_home_area("Indianapolis, Indiana", self.HOME))
+
+    def test_a_suburb_in_the_home_state_is_home(self):
+        self.assertTrue(location.in_home_area("Carmel, Indiana", self.HOME))
+
+    def test_one_home_office_in_a_list_is_enough(self):
+        self.assertTrue(location.in_home_area("Chicago, IL; Indianapolis, IN", self.HOME))
+
+    def test_a_listed_city_elsewhere_is_not_home(self):
+        self.assertFalse(location.in_home_area("Seattle, WA", self.HOME))
+
+    def test_remote_is_not_home(self):
+        self.assertFalse(location.in_home_area("Remote, United States", self.HOME))
+
+    def test_the_state_name_does_not_match_inside_the_city_name(self):
+        self.assertFalse(location.in_home_area("Indianapolis, IN", ["Indiana"]))
+
+    def test_no_home_configured_is_never_home(self):
+        self.assertFalse(location.in_home_area("Indianapolis, Indiana", []))
