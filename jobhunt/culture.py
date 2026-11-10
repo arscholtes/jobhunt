@@ -27,6 +27,12 @@ DOCS = re.compile(
     r"|async(?:hronous)? (?:communication|written|first)|write (?:things )?down|handbook"
     r"|strong writer|written proposal", re.I)
 REMOTE_HOSTILE = re.compile(r"in[- ]office|onsite required|hybrid|days? (?:per|a) week in", re.I)
+# What a company says about its own stage. Narrow on purpose: "startup mindset" turns
+# up at companies of every size, so the bare word "startup" is not evidence of stage.
+ESTABLISHED = re.compile(r"publicly traded|public company|\bnyse\b|\bnasdaq\b|fortune (?:100|500)"
+                         r"|s&p 500", re.I)
+EARLY_STAGE = re.compile(r"\bpre-?seed\b|\bseed[- ](?:stage|funded|round)\b|\bseries [ab]\b"
+                         r"|early[- ]stage|founding (?:engineer|team|member)", re.I)
 
 
 def _share(rows, pattern):
@@ -114,11 +120,29 @@ def _small_team(rows):
     return score, f"{eng} open engineering roles"
 
 
+def _established(rows):
+    """Stability: how far a company is from one bad call reaching the paycheck.
+
+    Size is the same open-engineering-roles proxy as _small_team, read the other
+    way. Stage comes from what the postings say about the company itself, and
+    when they say anything it counts for half.
+    """
+    eng = sum(1 for r in rows if ENG.search(r["title"] or ""))
+    size = max(0.0, min(1.0, (eng - 3) / 37))
+    _, late = _share(rows, ESTABLISHED)
+    _, early = _share(rows, EARLY_STAGE)
+    stage = late / (late + early) if late + early else None
+    score = size if stage is None else (size + stage) / 2
+    return score, (f"{eng} open engineering roles; stage named in {late} established, "
+                   f"{early} early-stage postings")
+
+
 PROBES = {
     "remote friendly": _remote_friendly,
     "no on-call pager rotation": _no_oncall,
     "writes things down": _writes_things_down,
     "small engineering team": _small_team,
+    "established company": _established,
     # Cadence needs commit or blog history; the postings cannot show it.
     "ships often": None,
 }

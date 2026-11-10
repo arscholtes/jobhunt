@@ -15,6 +15,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from typing import ClassVar
 
 from jobhunt import culture, score
+from jobhunt.profile import EXAMPLE
+from jobhunt.profile import load as load_profile
 
 HEAD = "At ExampleCo we build with Ruby, Rails, Postgres, Kubernetes and Go. " * 4
 TAIL = " ExampleCo is an equal opportunity employer. Benefits include Terraform training. " * 4
@@ -80,6 +82,39 @@ class StrippingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def company(eng_roles, says=""):
+    """Postings for a company that is identical on every term but size and stage."""
+    return [{"description": f"{says} Opening {i}.", "remote": 1, "location": "Remote",
+             "title": "Software Engineer"} for i in range(eng_roles)]
+
+
+class StabilityTests(unittest.TestCase):
+    """A twenty-person company has no insulation between one bad call and the paycheck."""
+
+    def established(self, rows):
+        return culture.PROBES["established company"](rows)
+
+    def test_under_the_example_profile_a_large_public_company_outranks_a_seed_startup(self):
+        prof = load_profile(EXAMPLE)
+        big = culture.assess(company(40, "We are a publicly traded company on Nasdaq."), prof)
+        seed = culture.assess(company(3, "We just closed our Series A and need a founding engineer."), prof)
+        self.assertGreater(big["score"], seed["score"])
+
+    def test_stage_language_decides_between_two_companies_of_one_size(self):
+        public, _ = self.established(company(10, "We are publicly traded."))
+        early, _ = self.established(company(10, "We are an early-stage, seed-funded team."))
+        self.assertGreater(public, early)
+
+    def test_with_no_stage_language_size_alone_decides(self):
+        self.assertEqual(1.0, self.established(company(40))[0])
+        self.assertEqual(0.0, self.established(company(3))[0])
+
+    def test_the_evidence_says_what_was_counted(self):
+        _, why = self.established(company(12, "publicly traded"))
+        self.assertIn("12 open engineering roles", why)
+        self.assertIn("12 established", why)
 
 
 class AssessTests(unittest.TestCase):

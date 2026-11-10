@@ -69,7 +69,7 @@ why     = "no"
 # Scored by the research step, not by keyword matching. Ordered by weight.
 [culture]
 "ships often"                = 5
-"small engineering team"     = 4
+"established company"        = 4
 "writes things down"         = 4
 "remote friendly"            = 3
 "no on-call pager rotation"  = 2
